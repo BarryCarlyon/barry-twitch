@@ -217,40 +217,26 @@ class eventsubSocket extends EventEmitter {
     }
 }
 
-class Twitch extends EventEmitter {
+class Conduit extends EventEmitter {
     twitch_client_id = "";
     twitch_client_secret = "";
 
     twitch_token = "";
-    twitch_refresh = "";
-
-    allow_client_creds = true;
-    allow_auto_maintain = true;
 
     headers = {};
 
     token_type = "";
-    token_user_id = "";
 
     constructor({
         client_id,
         client_secret,
 
         token,
-        refresh,
 
         conduit_id,
         shard_id,
-
-        allow_client_creds,
-        allow_auto_maintain,
     }) {
         super();
-
-        this.allow_client_creds = allow_client_creds ? allow_client_creds : this.allow_client_creds;
-        this.allow_auto_maintain = allow_auto_maintain
-            ? allow_auto_maintain
-            : this.allow_auto_maintain;
 
         if (conduit_id) {
             this.conduit_id = conduit_id;
@@ -268,13 +254,6 @@ class Twitch extends EventEmitter {
             // specified a clientID to compare the token to
             // without doing "infer" CID from token
             this.twitch_client_id = client_id;
-        }
-
-        if (refresh) {
-            if (!client_secret) {
-                throw new Error("A refresh token was provided but without a secret");
-            }
-            this.twitch_refresh = refresh;
         }
 
         if (token) {
@@ -319,24 +298,8 @@ class Twitch extends EventEmitter {
 
         let validateRes = await validateReq.json();
 
-        /*
-        if (validateRes.hasOwnProperty('user_id')) {
-            throw new Error('Token is NOT app access/client credentials');
-        }
-        */
         if (validateRes.hasOwnProperty("user_id")) {
-            this.token_type = "user_token";
-            this.token_user_id = validateRes.user_id;
-            // enforce no drop
-            this.allow_client_creds = false;
-
-            if (this.conduit_id != "") {
-                throw new Error(
-                    "Token is NOT app access/client credentials. And declared a conduit ID",
-                );
-            }
-        } else {
-            this.token_type = "client_credentials";
+            throw new Error("Token is NOT app access/client credentials.");
         }
 
         if (this.twitch_client_id == "") {
@@ -360,11 +323,9 @@ class Twitch extends EventEmitter {
             }
             this.infinityCheck = false;
 
-            if (this.allow_auto_maintain) {
-                // generate
-                this.generateToken();
-                return;
-            }
+            // generate
+            this.generateToken();
+            return;
         }
 
         // token passed validation check
@@ -373,30 +334,7 @@ class Twitch extends EventEmitter {
         // as the program can force a generate if it wants
         // ie: close to expire lets go early
         this.emit("validated", validateRes);
-
-        if (!this.allow_auto_maintain) {
-            console.debug("allow auto maitain is off");
-            return;
-        }
-        console.debug("allow auto maitain is on");
-        console.debug(this.twitch_refresh);
-        console.debug(this.twitch_client_secret);
-
-        // initiate maintaince timer
-        if (this.twitch_refresh != "" || this.twitch_client_secret != "") {
-            var n = new Date();
-            console.debug("now maintian", n);
-            n.setMinutes(n.getMinutes() + 15);
-            console.debug("next maintian", n);
-            // we got here as a client secret exists as well
-            // otherwise we threw earlier
-            clearTimeout(this._maintainceTimer);
-            // 15 miniutes
-            this._maintainceTimer = setTimeout(this.validateToken, 15 * 60 * 1000);
-        }
     };
-    _maintainceTimer = false;
-    //maintainToken = async () => {};
 
     generateHeaders = () => {
         this.headers = {
@@ -423,16 +361,6 @@ class Twitch extends EventEmitter {
             throw new Error("No Client ID/Secret, cannot generate token");
         }
 
-        // refresh?
-        if (this.twitch_refresh) {
-            // we have a refresh
-            return this.refreshToken();
-        }
-
-        // go for client credentials
-        if (!this.allow_client_creds) {
-            throw new Error("Dropped to Client Credentials and stopped as disallowed");
-        }
         let tokenReq = await fetch("https://id.twitch.tv/oauth2/token", {
             method: "POST",
             body: new URLSearchParams([
@@ -452,33 +380,6 @@ class Twitch extends EventEmitter {
         // final check
         this.validateToken();
     };
-    refreshToken = async () => {
-        let tokenReq = await fetch("https://id.twitch.tv/oauth2/token", {
-            method: "POST",
-            body: new URLSearchParams([
-                ["client_id", this.twitch_client_id],
-                ["client_secret", this.twitch_client_secret],
-                ["grant_type", "refresh_token"],
-                ["refresh_token", this.twitch_refresh],
-            ]),
-        });
-        if (tokenReq.status != 200) {
-            throw new Error(
-                `Failed to get refresh token: ${tokenReq.status}//${await tokenReq.text()}`,
-            );
-        }
-        let { access_token, refresh_token } = await tokenReq.json();
-        this.twitch_token = access_token;
-        this.twitch_refresh = refresh_token;
-        // emit token as we don't handle storage the program does
-        // the program might also need the token itself for whatever reason
-        this.emit("access_tokens", {
-            access_token,
-            refresh_token,
-        });
-        // final check
-        this.validateToken();
-    };
 
     conduit_id = "";
     shard_id = "";
@@ -494,10 +395,6 @@ class Twitch extends EventEmitter {
     session_id = "";
     setSessionID = (session_id) => {
         this.session_id = session_id;
-    };
-    // for if using an app access to run tings
-    setUserId = (user_id) => {
-        this.token_user_id = user_id;
     };
 
     createConduit = async (shard_count) => {
@@ -696,42 +593,6 @@ class Twitch extends EventEmitter {
         );
     };
 
-    // messaging
-    sendChat = async (broadcaster_id, message, reply_parent_message_id) => {
-        let payload = {
-            broadcaster_id,
-            sender_id: this.token_user_id,
-            message,
-            reply_parent_message_id,
-        };
-
-        return await fetch("https://api.twitch.tv/helix/chat/messages", {
-            method: "POST",
-            headers: {
-                ...this.headers,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        });
-    };
-    sendAnnouncement = async (broadcaster_id, message, color) => {
-        let payload = {
-            broadcaster_id,
-            moderator_id: this.token_user_id,
-            message,
-            color: color ? color : "primary",
-        };
-
-        return await fetch("https://api.twitch.tv/helix/chat/announcements", {
-            method: "POST",
-            headers: {
-                ...this.headers,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        });
-    };
-
     logHelixResponse = (resp) => {
         console.debug(
             `Helix: ${resp.status} - ${resp.headers.get("ratelimit-remaining")}/${resp.headers.get("ratelimit-limit")}`,
@@ -739,4 +600,4 @@ class Twitch extends EventEmitter {
     };
 }
 
-export { Twitch, eventsubSocket };
+export { Conduit, eventsubSocket };

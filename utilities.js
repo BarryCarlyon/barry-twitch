@@ -64,6 +64,12 @@ class Twitch {
             body: JSON.stringify(payload),
         });
     };
+
+    logHelixResponse = (resp) => {
+        console.debug(
+            `Helix: ${resp.status} - ${resp.headers.get("ratelimit-remaining")}/${resp.headers.get("ratelimit-limit")}`,
+        );
+    };
 }
 
 export { Twitch };
