@@ -1,5 +1,5 @@
 {
-    "name": "eventsub",
+    "name": "barry-twitch",
     "version": "1.0.0",
     "description": "",
     "main": "eventsub.js",
