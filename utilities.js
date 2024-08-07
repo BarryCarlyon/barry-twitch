@@ -31,11 +31,17 @@ class Twitch {
         this.generateHeaders();
     };
 
-    createChatMessage = async (broadcaster_id, sender_id, message) => {
+    createChatMessage = async (
+        broadcaster_id,
+        sender_id,
+        message,
+        reply_parent_message_id = null,
+    ) => {
         let payload = {
             broadcaster_id,
             sender_id,
             message,
+            reply_parent_message_id,
         };
 
         return await fetch("https://api.twitch.tv/helix/chat/messages", {
