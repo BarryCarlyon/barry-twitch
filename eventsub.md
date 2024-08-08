@@ -17,16 +17,27 @@ A given bot might juggle two tokens, or three if it's reading/writing broadcaste
 ## Class and functions
 
 -   `eventsubSocket` which extends `EventEmitter`
--   `Twitch` which extends `EventEmitter`
+-   `Conduit` which extends `EventEmitter`
+-   `ESWebSocket` which extends `EventEmitter`
+
+A created `eventsubSocket` can be attached to the functions of a `Conduit` and a shard of that conduit
+A created `eventsubSocket` can be attached to the functions of a `ESWebSocket`
+
+## Authentication
+
+A `Conduit` needs an App Access/Client Credentials Token
+
+A `ESWebSocket` needs a User Access Token
+
+`eventsubSocket` dones need a token
 
 ### Functions - `eventsubSocket`
 
-| name    | args                        | notes                                   |
-| ------- | --------------------------- | --------------------------------------- |
-| connect | see below                   |                                         |
-| trigger | ()                          | to remove is to test disconnect on send |
-| close   | ()                          | manual close connection function        |
-| silence | (keepalive_timeout_seconds) | internal                                |
+| name    | args                        | notes                            |
+| ------- | --------------------------- | -------------------------------- |
+| connect | see below                   |                                  |
+| close   | ()                          | manual close connection function |
+| silence | (keepalive_timeout_seconds) | internal                         |
 
 #### `eventsubSocket` init
 
@@ -51,7 +62,7 @@ A given bot might juggle two tokens, or three if it's reading/writing broadcaste
 | revocation        | { metdata, payload }  | lost access to `payload.subscription.type`                    |
 | session_silenced  |                       | the session died from silence, attmepting self reconnect      |
 
-### Functions - `Twitch`
+### Functions - `Conduit`
 
 #### Constuctor
 
@@ -68,27 +79,25 @@ A given bot might juggle two tokens, or three if it's reading/writing broadcaste
 
 #### Functions
 
-| name                    | args                                               | ret             | notes                                                                                    |
-| ----------------------- | -------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
-| validateToken           | ()                                                 |                 | after validate it calls generateHeaders and sets up maintaince                           |
-| generateHeaders         | ()                                                 |                 |                                                                                          |
-| setToken                | (token)                                            |                 | if you are doing token maintain externally you can update the token, it'll call validate |
-| generateToken           | ()                                                 |                 |                                                                                          |
-| refreshToken            | ()                                                 |                 |                                                                                          |
-| setConduitID            | (conduit_id)                                       |                 | setter                                                                                   |
-| setShardID              | (shard_id)                                         |                 | setter                                                                                   |
-| setSessionID            | (session_id)                                       |                 | setter                                                                                   |
-| setUserId               | (user_id)                                          |                 | override the auto/token determinet user ID handy if using cc's                           |
-| createConduit           | (shard_count)                                      | a conduit       |                                                                                          |
-| updateConduitShardCount | (shard_count)                                      |                 | using the prior set `conduit_id`                                                         |
-| deleteConduit           | ()                                                 |                 |                                                                                          |
-| findConduit             | ()                                                 | a conduit/false | finds the prior set `conduit_id`                                                         |
-| getShards               | ()                                                 |                 | incomplete/noop                                                                          |
-| updateShard             | ()                                                 | the updates     | update the set `shard_id` to the set `session_id`                                        |
-| createSubscription      | (subscription, method)                             | status/json     | for the prior set `conduit_id`                                                           |
-| sendChat                | (broadcaster_id, message, reply_parent_message_id) | fetch resp      |                                                                                          |
-| sendAnnouncement        | (broadcaster_id, message, color)                   | fetch resp      |                                                                                          |
-| logHelixResponse        | (resp)                                             |                 | process a helix API response for a easy log                                              |
+| name                    | args                   | ret             | notes                                                                                    |
+| ----------------------- | ---------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| validateToken           | ()                     |                 | after validate it calls generateHeaders and sets up maintaince                           |
+| generateHeaders         | ()                     |                 |                                                                                          |
+| setToken                | (token)                |                 | if you are doing token maintain externally you can update the token, it'll call validate |
+| generateToken           | ()                     |                 |                                                                                          |
+| refreshToken            | ()                     |                 |                                                                                          |
+| setConduitID            | (conduit_id)           |                 | setter                                                                                   |
+| setShardID              | (shard_id)             |                 | setter                                                                                   |
+| setSessionID            | (session_id)           |                 | setter                                                                                   |
+| setUserId               | (user_id)              |                 | override the auto/token determinet user ID handy if using cc's                           |
+| createConduit           | (shard_count)          | a conduit       |                                                                                          |
+| updateConduitShardCount | (shard_count)          |                 | using the prior set `conduit_id`                                                         |
+| deleteConduit           | ()                     |                 |                                                                                          |
+| findConduit             | ()                     | a conduit/false | finds the prior set `conduit_id`                                                         |
+| getShards               | ()                     |                 | incomplete/noop                                                                          |
+| updateShard             | ()                     | the updates     | update the set `shard_id` to the set `session_id`                                        |
+| createSubscription      | (subscription, method) | status/json     | for the prior set `conduit_id`                                                           |
+| logHelixResponse        | (resp)                 |                 | process a helix API response for a easy log                                              |
 
 #### Events
 
@@ -108,6 +117,8 @@ shard ID is ingnored if no conduit ID is set
 theres a bunch of ways that this can init....
 
 ### Operate as a user
+
+This is all wrong/outta data as fluid dev
 
 ```js
 let twitch = new Twitch({

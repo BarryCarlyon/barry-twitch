@@ -192,10 +192,6 @@ class eventsubSocket extends EventEmitter {
         });
     }
 
-    trigger() {
-        // this function lets you test the disconnect on send method
-        this.eventsub.send("cat");
-    }
     close() {
         this.eventsub.close();
     }
@@ -224,8 +220,6 @@ class Conduit extends EventEmitter {
     twitch_token = "";
 
     headers = {};
-
-    token_type = "";
 
     constructor({
         client_id,
@@ -273,7 +267,6 @@ class Conduit extends EventEmitter {
         throw new Error("Did not init with ClientID/Secret pair or a token");
     }
 
-    infinityCheck = false;
     validateToken = async () => {
         if (this.twitch_token == "") {
             console.debug("No Token will generate");
@@ -314,14 +307,8 @@ class Conduit extends EventEmitter {
         // check the duration left on the token
         // account for legacy inifinity tokens
         console.debug(`The Token has ${validateRes.expires_in}`);
-        if (validateRes.expires_in < 30 * 60) {
+        if (validateRes.expires_in < 30 * 60 && validateRes.expires_in > 0) {
             // need refresh
-            if (!this.infinityCheck && validateRes.expires_in == 0) {
-                this.infinityCheck = true;
-                this.validateToken();
-                return;
-            }
-            this.infinityCheck = false;
 
             // generate
             this.generateToken();
@@ -549,18 +536,11 @@ class Conduit extends EventEmitter {
         }
     }
     */
-    createSubscription = async (subscription, method) => {
+    createSubscription = async (subscription) => {
         let transport = {
-            method: "websocket",
-            session_id: this.session_id,
+            method: "conduit",
+            conduit_id: this.conduit_id,
         };
-
-        if (method == "conduit") {
-            transport = {
-                method: "conduit",
-                conduit_id: this.conduit_id,
-            };
-        }
 
         let subscriptionReq = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
             method: "POST",
@@ -600,4 +580,188 @@ class Conduit extends EventEmitter {
     };
 }
 
-export { Conduit, eventsubSocket };
+class ESWebSocket extends EventEmitter {
+    twitch_client_id = "";
+
+    twitch_token = "";
+
+    headers = {};
+
+    constructor({ client_id, token }) {
+        super();
+
+        if (!token || token == "") {
+            throw new Error("A Token is required");
+        }
+
+        if (client_id) {
+            // specified a clientID to compare the token to
+            // without doing "infer" CID from token
+            this.twitch_client_id = client_id;
+        }
+
+        // run with token
+        this.twitch_token = token;
+        // validate it
+        this.validateToken();
+    }
+
+    validateToken = async () => {
+        let validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
+            method: "GET",
+            headers: {
+                Authorization: `OAuth ${this.twitch_token}`,
+            },
+        });
+        if (validateReq.status != 200) {
+            console.debug("Token failed", validateReq.status);
+            // the token is invalid
+            // try to generate
+            this.generateToken();
+            return;
+        }
+
+        let validateRes = await validateReq.json();
+
+        if (!validateRes.hasOwnProperty("user_id")) {
+            throw new Error("Token is NOT user access");
+        }
+
+        if (this.twitch_client_id == "") {
+            // infer
+            console.debug("Inferring CID");
+            this.twitch_client_id = validateRes.client_id;
+        } else if (this.twitch_client_id != validateRes.client_id) {
+            // compare
+            throw new Error("Token ClientID does not match specified client ID");
+        }
+
+        // check the duration left on the token
+        // account for legacy inifinity tokens
+        console.debug(`The Token has ${validateRes.expires_in}`);
+        if (validateRes.expires_in < 30 * 60 && validateRes > 0) {
+            // need refresh
+            if (!this.infinityCheck && validateRes.expires_in == 0) {
+                this.infinityCheck = true;
+                this.validateToken();
+                return;
+            }
+            this.infinityCheck = false;
+
+            // generate
+            this.generateToken();
+            return;
+        }
+
+        // token passed validation check
+        this.generateHeaders();
+        // we'll emit
+        // as the program can force a generate if it wants
+        // ie: close to expire lets go early
+        this.emit("validated", validateRes);
+    };
+
+    generateHeaders = () => {
+        this.headers = {
+            "Client-ID": this.twitch_client_id,
+            "Authorization": `Bearer ${this.twitch_token}`,
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+        };
+        console.debug("headers", this.headers);
+    };
+    setToken = (token) => {
+        this.twitch_token = token;
+        this.validateToken();
+    };
+
+    generateToken = async () => {
+        console.debug("Generating a token");
+        if (
+            this.twitch_client_id == null ||
+            this.twitch_client_secret == null ||
+            this.twitch_client_id == "" ||
+            this.twitch_client_secret == ""
+        ) {
+            throw new Error("No Client ID/Secret, cannot generate token");
+        }
+
+        let tokenReq = await fetch("https://id.twitch.tv/oauth2/token", {
+            method: "POST",
+            body: new URLSearchParams([
+                ["client_id", this.twitch_client_id],
+                ["client_secret", this.twitch_client_secret],
+                ["grant_type", "client_credentials"],
+            ]),
+        });
+        if (tokenReq.status != 200) {
+            throw new Error(`Failed to get a token: ${tokenReq.status}//${await tokenReq.text()}`);
+        }
+        let { access_token } = await tokenReq.json();
+        this.twitch_token = access_token;
+        // emit token as we don't handle storage the program does
+        // the program might also need the token itself for whatever reason
+        this.emit("access_token", this.twitch_token);
+        // final check
+        this.validateToken();
+    };
+
+    session_id = "";
+    setSessionID = (session_id) => {
+        this.session_id = session_id;
+    };
+
+    /*
+    subscription = {
+        type: 'foo',
+        version: "1",
+        condition: {
+            whatever
+        }
+    }
+    */
+    createSubscription = async (subscription) => {
+        let transport = {
+            method: "websocket",
+            session_id: this.session_id,
+        };
+
+        let subscriptionReq = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
+            method: "POST",
+            headers: {
+                ...this.headers,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                ...subscription,
+                transport,
+            }),
+        });
+        if (subscriptionReq.status == 202) {
+            return {
+                status: subscriptionReq.status,
+                json: await subscriptionReq.json(),
+            };
+        }
+        if (subscriptionReq.status == 409) {
+            // its TECHNICALLY not an error....
+            return {
+                status: subscriptionReq.status,
+                json: await subscriptionReq.json(),
+            };
+        }
+
+        // major fail
+        throw new Error(
+            `Failed to create Subscription ${subscriptionReq.status} - ${await subscriptionReq.text()}`,
+        );
+    };
+
+    logHelixResponse = (resp) => {
+        console.debug(
+            `Helix: ${resp.status} - ${resp.headers.get("ratelimit-remaining")}/${resp.headers.get("ratelimit-limit")}`,
+        );
+    };
+}
+
+export { Conduit, ESWebSocket, eventsubSocket };
