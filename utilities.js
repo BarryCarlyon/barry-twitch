@@ -54,11 +54,28 @@ class Twitch {
         });
     };
 
-    createAnnouncement = async (broadcaster_id, moderator_id, message) => {
+    createAnnouncement = async (broadcaster_id, moderator_id, message, color = "primary") => {
+        if (!broadcaster_id || broadcaster_id == "") {
+            throw new Error("No Broadcaster ID");
+        }
+        if (!moderator_id || moderator_id == "") {
+            throw new Error("No Moderator ID");
+        }
+        if (!message || message == "") {
+            throw new Error("No Message");
+        }
+        let colors = ["blue", "green", "orange", "purple", "primary"];
+        if (!colors.includes(color)) {
+            throw new Error(
+                `Invalid color: ${color} specified, one of ${colors.join(",")} required`,
+            );
+        }
+
         let payload = {
             broadcaster_id,
             moderator_id,
             message,
+            color,
         };
 
         return await fetch("https://api.twitch.tv/helix/chat/announcements", {
