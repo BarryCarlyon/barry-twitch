@@ -27,6 +27,10 @@ class tokenManager extends EventEmitter {
     }) {
         super();
 
+        const allow_types = ["user_token", "client_credentials"];
+        if (!allow_types.includes(token_type)) {
+            throw new Error("Invalid Token Type");
+        }
         this.token_type = token_type;
         this.auto_maintain = auto_maintain;
 
@@ -85,18 +89,24 @@ class tokenManager extends EventEmitter {
             throw new Error('Token is NOT app access/client credentials');
         }
         */
+        let new_token_type = "";
         if (validateRes.hasOwnProperty("user_id")) {
-            this.token_type = "user_token";
+            new_token_type = "user_token";
             this.token_user_id = validateRes.user_id;
             // enforce no drop
             this.allow_client_creds = false;
         } else {
-            this.token_type = "client_credentials";
+            new_token_type = "client_credentials";
         }
 
         if (this.twitch_client_id != validateRes.client_id) {
             // compare failed
             throw new Error("Token ClientID does not match specified client ID");
+        }
+        if (new_token_type != this.token_type) {
+            throw new Error(
+                `Mismatched token type detected: was ${this.token_type} now: ${new_token_type}`,
+            );
         }
 
         // check the duration left on the token

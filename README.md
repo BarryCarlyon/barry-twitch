@@ -12,13 +12,15 @@ Pass in an object with these keys to instantiate
 | Param           | Type   | Default | Required | Notes                                                      |
 | --------------- | ------ | ------- | -------- | ---------------------------------------------------------- |
 | `client_id`     | String | ''      | Yes      |                                                            |
-| `client_secret` | String | ''      | Yes      | Required in a `refresh` is supplied                        |
+| `client_secret` | String | ''      | Yes      |                                                            |
 | `token`         | String | ''      | No       |                                                            |
 | `refresh`       | String | ''      | No       | If doing a user access token the refresh token to run with |
 | `token_type`    | String | ''      | Yes      | it's `user_token` or `client_credentials`                  |
-| `auto_maintain` | Bool   | true    | Yes      | auto validate and refresh/regenerated on a 15 mintue timer |
+| `auto_maintain` | Bool   | true    | Yes      | auto validate and refresh/regenerated on a 15 minute timer |
 
 Token Validation checks are every 15 minutes, if `auto_maintain` is enabled.
+
+SURE conceptually you could boot this up with JUST a user token and go, but thats kinda odd in general. As with an implict auth operation this lib is just overkill imo.
 
 ## Functions
 
