@@ -2,22 +2,25 @@
 
 Reusable things throwing in github for easier use in things
 
+> [!CAUTION]
+> Very much in progress faffery use at own risk
+
 # Token Manager
 
 Pass in an object with these keys to instantiate
 
 | Param           | Type   | Default | Required | Notes                                                      |
 | --------------- | ------ | ------- | -------- | ---------------------------------------------------------- |
-| `client_id`     | String | ``      | Yes      |                                                            |
-| `client_secret` | String | ``      | No       | Required in a `refresh` is supplied                        |
-| `token`         | String | ``      | No       |                                                            |
-| `refresh`       | String | ``      | No       | If doing a user access token the refresh token to run with |
-| `token_type`    | String | ``      | Yes      | it's `user_token` or `client_credentials`                  |
+| `client_id`     | String | ''      | Yes      |                                                            |
+| `client_secret` | String | ''      | Yes      | Required in a `refresh` is supplied                        |
+| `token`         | String | ''      | No       |                                                            |
+| `refresh`       | String | ''      | No       | If doing a user access token the refresh token to run with |
+| `token_type`    | String | ''      | Yes      | it's `user_token` or `client_credentials`                  |
 | `auto_maintain` | Bool   | true    | Yes      | auto validate and refresh/regenerated on a 15 mintue timer |
 
 Token Validation checks are every 15 minutes, if `auto_maintain` is enabled.
 
-## functions
+## Functions
 
 | Function          | params | notes                                           |
 | ----------------- | ------ | ----------------------------------------------- |
@@ -53,7 +56,7 @@ fetch("", {
 });
 ```
 
-## Initate Blind App Access Token
+## Initiate Blind App Access Token
 
 Initiate a token manager for App Access Token/client credentials
 
@@ -83,7 +86,7 @@ twitch.once("validated", () => {
 twitch.refreshToken();
 ```
 
-## Initate From Existing App Access Token
+## Initiate From Existing App Access Token
 
 Initiate a token manager for client credentials with existing token
 
