@@ -271,8 +271,7 @@ class Conduit extends EventEmitter {
         if (this.twitch_token == "") {
             console.debug("No Token will generate");
             // can generate?
-            this.generateToken();
-            return;
+            return await this.generateToken();
         }
 
         let validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
@@ -285,8 +284,7 @@ class Conduit extends EventEmitter {
             console.debug("Token failed", validateReq.status);
             // the token is invalid
             // try to generate
-            this.generateToken();
-            return;
+            return await this.generateToken();
         }
 
         let validateRes = await validateReq.json();
@@ -311,8 +309,7 @@ class Conduit extends EventEmitter {
             // need refresh
 
             // generate
-            this.generateToken();
-            return;
+            return await this.generateToken();
         }
 
         // token passed validation check
@@ -330,7 +327,7 @@ class Conduit extends EventEmitter {
             "Accept": "application/json",
             "Accept-Encoding": "gzip",
         };
-        console.debug("headers", this.headers);
+        //console.debug("headers", this.headers);
     };
     setToken = (token) => {
         this.twitch_token = token;
@@ -365,7 +362,7 @@ class Conduit extends EventEmitter {
         // the program might also need the token itself for whatever reason
         this.emit("access_token", this.twitch_token);
         // final check
-        this.validateToken();
+        return await this.validateToken();
     };
 
     conduit_id = "";
