@@ -1,6 +1,6 @@
 {
     "name": "barry-twitch",
-    "version": "2025.07.15",
+    "version": "1.1.0",
     "description": "",
     "main": "eventsub.js",
     "scripts": {
