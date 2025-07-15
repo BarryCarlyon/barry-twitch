@@ -11,14 +11,14 @@ A given bot might juggle two tokens, or three if it's reading/writing broadcaste
 
 ## Dependancies
 
--   `EventEmitter` from `events`
--   `WebSocket` from `ws`
+- `EventEmitter` from `events`
+- `WebSocket` from `ws`
 
 ## Class and functions
 
--   `eventsubSocket` which extends `EventEmitter`
--   `Conduit` which extends `EventEmitter`
--   `ESWebSocket` which extends `EventEmitter`
+- `eventsubSocket` which extends `EventEmitter`
+- `Conduit` which extends `EventEmitter`
+- `ESWebSocket` which extends `EventEmitter`
 
 A created `eventsubSocket` can be attached to the functions of a `Conduit` and a shard of that conduit
 A created `eventsubSocket` can be attached to the functions of a `ESWebSocket`
