@@ -43,3 +43,70 @@ myConduit.shardUpdate(() => {
     myConduit.createSubscription({ stuff });
 });
 ```
+
+Delayed
+
+```js
+let mySocket = new eventsubSocket({
+    connect: false,
+});
+let myConduit = new Conduit({
+    token: "tokenhere",
+
+    shard_id: "0",
+});
+
+// later do
+conduit.setToken(token);
+conduit.setConduitID(conduit_id);
+// then go
+```
+
+# Utility Functions
+
+## Find Conduit
+
+FunctionName: `findConduit`
+
+Twitch API calls: [Get Conduits](https://dev.twitch.tv/docs/api/reference/#get-conduits)
+
+Arguments: None, uses instance set variables
+
+- `conduit_id`
+
+Check if the pre set conduit exists.
+
+Will return `null` or the conduit and will raise match events to trigger with
+
+### Events
+
+| event name        | data        |
+| ----------------- | ----------- |
+| `conduitFound`    | the conduit |
+| `conduitNotFound` | `null`      |
+
+## Update Shard
+
+FunctionName: `updateShard`
+
+Twitch API calls: [Update Conduit Shards](https://dev.twitch.tv/docs/api/reference/#update-conduit-shards)
+
+Argument: None, uses instance set variables
+
+- `conduit_id`
+- `shard_id`
+- `session_id`
+
+Using instance set variable update the shard to the given websocket ID
+
+## Create a Subscription
+
+This will create a Twitch Eventsub subscription to the Conduit
+
+FunctionName: `createSubscription`
+
+Twitch API calls [Create EventSub Subscription](https://dev.twitch.tv/docs/api/reference/#create-eventsub-subscription)
+
+Arguments: a [subscription set](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/) that the function will add a transport to
+
+Returns the subscription throws an error

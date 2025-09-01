@@ -235,7 +235,7 @@ class Conduit extends EventEmitter {
             this.conduit_id = conduit_id;
         }
         // it can be 0 but it's a string
-        if (shard_id) {
+        if (undefined !== shard_id) {
             this.shard_id = shard_id;
         }
 
@@ -473,7 +473,7 @@ class Conduit extends EventEmitter {
 
         this.emit("conduitNotFound");
         //throw new Error("Conduit Not Found", { cause: "NotFound" });
-        return false;
+        return null;
     };
 
     getShards = async () => {

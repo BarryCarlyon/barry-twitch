@@ -43,6 +43,9 @@ class tokenManager extends EventEmitter {
         }
 
         if (refresh) {
+            if (this.token_type == "client_credentials") {
+                throw new Error("You passed a refresh token for Client Credentials");
+            }
             if (!client_secret) {
                 throw new Error("A refresh token was provided but without a secret");
             }
@@ -194,7 +197,7 @@ class tokenManager extends EventEmitter {
         }
         // emit token as we don't handle storage the program does
         // the program might also need the token itself for whatever reason
-        this.emit("access_tokens", {
+        this.emit("access_token", {
             access_token,
             refresh_token,
         });
