@@ -193,13 +193,16 @@ You might do something like
 
 Hash: twitch_tokens
 
-```
-app_access
-bot_access
-bot_refresh
-user_access
-user_refresh
-```
+| key          | notes                                                                         |
+| ------------ | ----------------------------------------------------------------------------- |
+| app_access   | An app access token, save for other processes to use/persist between restarts |
+| bot_access   | The bots user access token, for announcements or moderation actions           |
+| bot_refresh  | The bots user refresh token                                                   |
+| user_access  | The channels user access token, for subscriptions and the like                |
+| user_refresh | Nuf said                                                                      |
+
+> [!NOTE]
+> Redis is _generally_ considered "temporary", I tend to store my more persistent keys in MySQL as apposed to redis, but the App Access token isn't worth keeping. I only store it in redis, so that any other thing I have needing the token can use the same token and prevent running into the 50 rule.
 
 ```js
 import "dotenv/config";
