@@ -116,7 +116,7 @@ twitch.once("validated", () => {
     // the existing token is good (or a new one made) and we can go
 
     fetch("", {
-        method: "get",
+        method: "GET",
         headers: {
             ...twitch.headers,
         },
@@ -145,21 +145,17 @@ let [access_token, refresh_token] = await redisClient.HMGET(process.env.redisSto
     "access_token",
     "refresh_token",
 ]);
-process.env.ACCESS_TOKEN = access_token;
-process.env.REFRESH_TOKEN = refresh_token;
 
 let twitchToken = new tokenManager({
     client_id: process.env.TWITCH_CLIENT_ID,
     client_secret: process.env.TWITCH_CLIENT_SECRET,
-    token: process.env.ACCESS_TOKEN,
-    refresh: process.env.REFRESH_TOKEN,
+    token: access_token,
+    refresh: refresh_token,
     token_type: "user_token",
 });
 
 twitchToken.on("access_tokens", async ({ access_token, refresh_token }) => {
     console.log("Got new tokens so storing them", access_token);
-    process.env.ACCESS_TOKEN = access_token;
-    process.env.REFRESH_TOKEN = refresh_token;
 
     // got new key sets lets store them
     await redisClient.HSET(process.env.redisStorageKey, "access_token", access_token);
