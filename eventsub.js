@@ -262,8 +262,6 @@ class Conduit extends EventEmitter {
             this.generateToken();
             return;
         }
-
-        throw new Error("Did not init with ClientID/Secret pair or a token");
     }
 
     validateToken = async () => {

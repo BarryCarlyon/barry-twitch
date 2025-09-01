@@ -169,3 +169,156 @@ function spawnBot() {
 
 twitchToken.once("validated", spawnBot);
 ```
+
+# Chat Bot Badge edition
+
+## Conduit ID
+
+The conduit needs to exist and is stored recalled from redis.
+
+In this example a redis hash is used under `conduit_manager`
+
+| hash key | thought                                                                 |
+| -------- | ----------------------------------------------------------------------- |
+| chatbot  | for chat bot operations, so just chat topics                            |
+| overlay  | for overlay operations, channel.chat.notification, and bits.use perhaps |
+
+In a lot of cases you'll probably have a similar distribution of types (topics) between the conduits, but without an internal "shard recieve and relay" you'll probably split your services to multiple conduits, as this also helps control the signal to noise ratio.
+
+## For tokens:
+
+Here we store/recall the generated app access token in a hash key instead.
+
+You might do something like
+
+Hash: twitch_tokens
+
+```
+app_access
+bot_access
+bot_refresh
+user_access
+user_refresh
+```
+
+```js
+import "dotenv/config";
+
+// redis
+import { createClient } from "redis";
+const redisClient = createClient();
+await redisClient.connect();
+
+import { Conduit, eventsubSocket } from "barry-twitch/eventsub.js";
+import { tokenManager } from "barry-twitch/token_manager.js";
+
+let appAccessToken = await redisClient.HGET("twitch_tokens", "app_access");
+
+// create a token manager for the app access token
+let twitchToken = new tokenManager({
+    client_id: process.env.TWITCH_CLIENT_ID,
+    client_secret: process.env.TWITCH_CLIENT_SECRET,
+
+    token: appAccessToken ?? "invalid",
+    token_type: "client_credentials",
+});
+// Setup a conduit control
+let conduit = new Conduit({
+    client_id: process.env.TWITCH_CLIENT_ID,
+
+    shard_id: "0",
+});
+// setup this shard
+let myShard = new eventsubSocket({
+    connect: false,
+});
+
+twitchToken.on("access_token", async (token_set) => {
+    let { access_token } = token_set;
+    console.log("Generated access token");
+    await redisClient.HSET("twitch_tokens", "app_access", access_token);
+});
+
+twitchToken.once("validated", firstTokenReady);
+
+async function firstTokenReady() {
+    console.log("Validated access token - doing first start");
+
+    // load conduit id
+    let conduit_id = await redisClient.HGET("conduit_manager", "chatbot");
+    if (!conduit_id || conduit_id == "") {
+        // we need to generate a conduit
+        console.error("No defined conduitID");
+        process.exit();
+    }
+    console.log("Selecting", conduit_id);
+    conduit.setConduitID(conduit_id);
+
+    // spawn connection
+    conduit.on("validated", conduitReady);
+    conduit.setToken(twitchToken.twitch_token);
+}
+async function conduitReady() {
+    let conduitExists = await conduit.findConduit();
+    if (!conduitExists) {
+        // the conduit doesn't exist
+        console.error("Conduit does not exist and we will not self create");
+        process.exit();
+    }
+
+    // shard count maybe? but problem for later due to size
+    console.log("The conduit was found yay");
+
+    // we can make a socket baby
+    myShard.connect();
+}
+
+myShard.on("connected", (session_id) => {
+    conduit.setSessionID(session_id);
+    // and then connect
+    conduit.updateShard();
+    // sanity check subscriptions?
+    sanityCheckSubscriptions();
+});
+
+myShard
+    .on("session_keepalive", () => {
+        console.log("boop");
+    })
+    .on("session_reconnect", (url) => {
+        console.log("Doing a reconnect", url);
+    });
+
+myShard.on("notification", doSomethingWithMessage);
+```
+
+notably the library emits each type on a seperate feed so
+
+```js
+myShard.on("channel.chat.message", handleChatMessage);
+myShard.on("channel.chat.notification", handleChatNotification);
+
+async function handleChatMessage({ metadata, payload }) {
+    const { event, subscription } = payload;
+    const { broadcaster_user_id, chatter_user_id } = event;
+    if (chatter_user_id == subscription.condition.user_id) {
+        // ignore myself
+        return;
+    }
+
+    let chatter = {
+        id: event.chatter_user_id,
+        login: event.chatter_user_login,
+        name: event.chatter_user_name,
+        color: event.color,
+    };
+    let broadcaster = {
+        id: event.broadcaster_user_id,
+        login: event.broadcaster_user_login,
+        name: event.broadcaster_user_name,
+    };
+    let { message } = event;
+
+    console.log(`On ${broadcaster.login} From ${chatter.login} - ${message}`);
+});
+```
