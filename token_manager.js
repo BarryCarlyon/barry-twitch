@@ -157,6 +157,7 @@ class tokenManager extends EventEmitter {
             "Authorization": `Bearer ${this.twitch_token}`,
             "Accept": "application/json",
             "Accept-Encoding": "gzip,deflate",
+            "User-Agent": "BarryTwitch Library"
         };
         //console.debug("headers", this.headers);
     };
