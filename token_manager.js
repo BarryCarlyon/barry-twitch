@@ -156,7 +156,7 @@ class tokenManager extends EventEmitter {
             "Client-ID": this.twitch_client_id,
             "Authorization": `Bearer ${this.twitch_token}`,
             "Accept": "application/json",
-            "Accept-Encoding": "gzip",
+            "Accept-Encoding": "gzip,deflate",
         };
         //console.debug("headers", this.headers);
     };
