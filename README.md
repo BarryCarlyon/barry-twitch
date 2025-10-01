@@ -215,7 +215,7 @@ await redisClient.connect();
 import { Conduit, eventsubSocket } from "barry-twitch/eventsub.js";
 import { tokenManager } from "barry-twitch/token_manager.js";
 
-let appAccessToken = await redisClient.HGET("twitch_tokens", "app_access");
+let appAccessToken = await redisClient.HGET("twitch_tokens", `app_access_${process.env.TWITCH_CLIENT_ID}`);
 
 // create a token manager for the app access token
 let twitchToken = new tokenManager({
@@ -239,7 +239,7 @@ let myShard = new eventsubSocket({
 twitchToken.on("access_token", async (token_set) => {
     let { access_token } = token_set;
     console.log("Generated access token");
-    await redisClient.HSET("twitch_tokens", "app_access", access_token);
+    await redisClient.HSET("twitch_tokens", `app_access_${process.env.TWITCH_CLIENT_ID}`, access_token);
 });
 
 twitchToken.once("validated", firstTokenReady);
@@ -248,7 +248,7 @@ async function firstTokenReady() {
     console.log("Validated access token - doing first start");
 
     // load conduit id
-    let conduit_id = await redisClient.HGET("conduit_manager", "chatbot");
+    let conduit_id = await redisClient.HGET("conduit_manager", process.env.CONDUIT_NAME);
     if (!conduit_id || conduit_id == "") {
         // we need to generate a conduit
         console.error("No defined conduitID");
