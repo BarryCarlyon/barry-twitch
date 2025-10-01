@@ -112,6 +112,11 @@ class eventsubSocket extends EventEmitter {
             let { message_id, message_type, message_timestamp } = metadata;
             //console.debug(`Recv ${message_id} - ${message_type}`);
 
+            // reset silence
+            if (message_type != "session_welcome") {
+                this.silence();
+            }
+
             switch (message_type) {
                 case "session_welcome":
                     let { session } = payload;
@@ -139,7 +144,6 @@ class eventsubSocket extends EventEmitter {
                 case "session_keepalive":
                     //console.debug(`Recv KeepAlive - ${message_type}`);
                     this.emit("session_keepalive");
-                    this.silence();
                     break;
 
                 case "notification":
@@ -156,7 +160,6 @@ class eventsubSocket extends EventEmitter {
 
                     this.emit("notification", { metadata, payload });
                     this.emit(type, { metadata, payload });
-                    this.silence();
 
                     break;
 
