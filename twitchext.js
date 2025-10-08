@@ -50,7 +50,7 @@ async function tokenVerify(req, res, next) {
 async function tokenGenerate(channel_id, pubsub_perm = false) {
     let ptokenData = {
         exp: Math.floor(new Date().getTime() / 1000) + 10,
-        user_id: process.env.BARRY,
+        user_id: process.env.TWITCH_OWNER_ID,
         role: "external",
         channel_id: channel_id ? channel_id : "all",
     };
