@@ -100,11 +100,13 @@ pubsubIt("broadcast", "15185913", messageToSave);
 
 Called `tokenGenerate`
 
-This function is used to generate JWT Token for other API Calls that ustilise a JWT, normally for us by the ohter functions in this file/lib.
+This function is used to generate JWT Token for other API Calls that ustilise a JWT, normally for use by the other functions in this file/lib. But exported for convience.
 
 JWT's have a expiry time, this library/function will generate JWT"s with 10 second expiry.
 
 It is capable of generation an `external` JWT that is for config/api calls _or_ PubSub calls.
+
+You'll often find that a JWT couched for PubSub will work for most if not all calls.
 
 ### Usage
 
