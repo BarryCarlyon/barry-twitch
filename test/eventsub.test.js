@@ -19,6 +19,9 @@ let INVALID_TOKEN = "invalidtoken";
 let VALID_TOKEN = "validtoken";
 
 let EXPECTED_CONDUIT_ID = "26b1c993-bfcf-44d9-b876-379dacafe75a";
+let SESSION_ID = "AgoQ6s-acYzgS4WtIhp7Twy2ARIGY2VsbC1h";
+
+//https://github.com/chaijs/chai-as-promised/blob/master/lib/chai-as-promised.js#L186
 
 /*
 PREPARE
@@ -83,7 +86,9 @@ it("inits with all the things and errors - token failed validation", async () =>
         shard_id: "1",
     });
 
-    await expect(cond.start()).to.be.rejectedWith(`Conduit Cannot - Token Failed Validation`);
+    await expect(cond.start()).to.be.rejectedWith(
+        new RegExp("^Conduit Cannot - Token Failed Validation$"),
+    );
     expect(validateNock).to.have.been.requested;
 });
 
@@ -103,7 +108,7 @@ it("inits with all the things and errors - token is not client creds", async () 
         shard_id: "1",
     });
 
-    await expect(cond.start()).to.be.rejectedWith(`Token is NOT app access/client credentials`);
+    await expect(cond.start()).to.be.rejectedWith(/^Token is NOT app access\/client credentials$/);
     expect(validateNock).to.have.been.requested;
 });
 
@@ -122,7 +127,7 @@ it("inits with all the things and errors - client ID mismatch", async () => {
     });
 
     await expect(cond.start()).to.be.rejectedWith(
-        `Token ClientID does not match specified client ID`,
+        /^Token ClientID does not match specified client ID$/,
     );
     expect(cond.twitch_client_id).to.equal("aDifferentClientID");
     expect(validateNock).to.have.been.requested;
@@ -169,7 +174,7 @@ it("inits with all the things and errors - id.twitch.tv not there", async () => 
         shard_id: "1",
     });
 
-    await expect(cond.start()).to.be.rejectedWith(`Conduit - Validate Request Failed`);
+    await expect(cond.start()).to.be.rejectedWith(/^Conduit - Validate Request Failed$/);
     expect(validateNock).to.have.been.requested;
 });
 
@@ -229,7 +234,7 @@ it("inits with all the things and errors - failed get conduits", async () => {
 
     await expect(cond.start()).to.be.fulfilled;
     expect(getConduits).to.have.been.requested;
-    await expect(cond.findConduit()).to.be.rejectedWith(`Failed to Get Conduits`);
+    await expect(cond.findConduit()).to.be.rejectedWith(/^Failed to Get Conduits$/);
 });
 
 it("inits with all the things and errors - conduit not found", async () => {
@@ -310,3 +315,209 @@ it("inits with all the things and passes - conduit found", async () => {
         shard_count: 1,
     });
 });
+
+/*
+SHARD
+*/
+it("update shard and fails as invalid setup", async () => {
+    const validateNock = nock("https://id.twitch.tv").get("/oauth2/validate").reply(200, {
+        client_id: VALID_CLIENT_ID,
+        scopes: null,
+        expires_in: 5075147,
+    });
+    const getConduits = nock("https://api.twitch.tv")
+        .get("/helix/eventsub/conduits")
+        .reply(200, {
+            data: [
+                {
+                    id: EXPECTED_CONDUIT_ID,
+                    shard_count: 1,
+                },
+            ],
+        });
+    const updateShard = nock("https://api.twitch.tv")
+        .patch("/helix/eventsub/conduits/shards")
+        .reply(400, {
+            message: "Invalid Shard",
+        });
+
+    let cond = new Conduit({
+        client_id: VALID_CLIENT_ID,
+        token: VALID_TOKEN,
+        conduit_id: EXPECTED_CONDUIT_ID,
+        shard_id: "1",
+    });
+
+    await cond.start();
+
+    expect(validateNock).to.have.been.requested;
+    expect(getConduits).to.have.been.requested;
+    expect(updateShard).to.have.been.requested;
+    await expect(cond.updateShard()).to.be.rejectedWith(/^Missing Shard ID or Session ID$/);
+});
+
+it("sessionID was set", () => {
+    let cond = new Conduit({
+        client_id: VALID_CLIENT_ID,
+        token: VALID_TOKEN,
+        conduit_id: EXPECTED_CONDUIT_ID,
+        shard_id: "1",
+    });
+
+    cond.setSessionID(SESSION_ID);
+
+    expect(cond.shard_id).to.equal("1");
+    expect(cond.session_id).to.equal(SESSION_ID);
+});
+
+it("update shard and fails as HTTP", async () => {
+    const validateNock = nock("https://id.twitch.tv").get("/oauth2/validate").reply(200, {
+        client_id: VALID_CLIENT_ID,
+        scopes: null,
+        expires_in: 5075147,
+    });
+    const getConduits = nock("https://api.twitch.tv")
+        .get("/helix/eventsub/conduits")
+        .reply(200, {
+            data: [
+                {
+                    id: EXPECTED_CONDUIT_ID,
+                    shard_count: 1,
+                },
+            ],
+        });
+    const updateShard = nock("https://api.twitch.tv")
+        .patch("/helix/eventsub/conduits/shards")
+        .reply(400, {
+            message: "Invalid Shard",
+        });
+
+    let cond = new Conduit({
+        client_id: VALID_CLIENT_ID,
+        token: VALID_TOKEN,
+        conduit_id: EXPECTED_CONDUIT_ID,
+        shard_id: "1",
+    });
+
+    await cond.start();
+
+    cond.setSessionID(SESSION_ID);
+
+    expect(validateNock).to.have.been.requested;
+    expect(getConduits).to.have.been.requested;
+    expect(updateShard).to.have.been.requested;
+    await expect(cond.updateShard()).to.be.rejectedWith(/^Failed to shardUpdate$/);
+});
+
+it("update shard and error response", async () => {
+    const validateNock = nock("https://id.twitch.tv").get("/oauth2/validate").reply(200, {
+        client_id: VALID_CLIENT_ID,
+        scopes: null,
+        expires_in: 5075147,
+    });
+    const getConduits = nock("https://api.twitch.tv")
+        .get("/helix/eventsub/conduits")
+        .reply(200, {
+            data: [
+                {
+                    id: EXPECTED_CONDUIT_ID,
+                    shard_count: 1,
+                },
+            ],
+        });
+    const updateShardError = nock("https://api.twitch.tv")
+        .patch("/helix/eventsub/conduits/shards")
+        .reply(202, {
+            errors: [
+                {
+                    id: "2",
+                    message: "some message",
+                    code: "1",
+                },
+            ],
+        });
+
+    let cond = new Conduit({
+        client_id: VALID_CLIENT_ID,
+        token: VALID_TOKEN,
+        conduit_id: EXPECTED_CONDUIT_ID,
+        shard_id: "1",
+    });
+
+    await cond.start();
+
+    cond.setSessionID(SESSION_ID);
+
+    expect(validateNock).to.have.been.requested;
+    expect(getConduits).to.have.been.requested;
+    expect(updateShardError).to.have.been.requested;
+    await expect(cond.updateShard()).to.be.rejectedWith(/^Failed to shardUpdate$/);
+});
+
+it("update shard and good", async () => {
+    // err lol
+    nock.cleanAll();
+    // err lol
+
+    const validateNock = nock("https://id.twitch.tv").get("/oauth2/validate").reply(200, {
+        client_id: VALID_CLIENT_ID,
+        scopes: null,
+        expires_in: 5075147,
+    });
+    const getConduits = nock("https://api.twitch.tv")
+        .get("/helix/eventsub/conduits")
+        .reply(200, {
+            data: [
+                {
+                    id: EXPECTED_CONDUIT_ID,
+                    shard_count: 1,
+                },
+            ],
+        });
+    const updateShardGood = nock("https://api.twitch.tv")
+        .patch("/helix/eventsub/conduits/shards")
+        .reply(202, {
+            data: [
+                {
+                    id: "0",
+                    status: "enabled",
+                    transport: {
+                        method: "websocket",
+                        session_id: SESSION_ID,
+                    },
+                },
+            ],
+        });
+
+    let cond = new Conduit({
+        client_id: VALID_CLIENT_ID,
+        token: VALID_TOKEN,
+        conduit_id: EXPECTED_CONDUIT_ID,
+        shard_id: "0",
+    });
+
+    await cond.start();
+
+    cond.setSessionID(SESSION_ID);
+
+    expect(validateNock).to.have.been.requested;
+    expect(getConduits).to.have.been.requested;
+    expect(updateShardGood).to.have.been.requested;
+
+    const shardUpdateResponse = await cond.updateShard();
+    //console.log("good response", shardUpdateResponse);
+    assert.deepEqual(shardUpdateResponse, [
+        {
+            id: "0",
+            status: "enabled",
+            transport: {
+                method: "websocket",
+                session_id: SESSION_ID,
+            },
+        },
+    ]);
+});
+
+/*
+Subscription create
+*/

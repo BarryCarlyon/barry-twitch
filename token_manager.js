@@ -55,8 +55,8 @@ class tokenManager extends EventEmitter {
         if (token) {
             // run with token
             this.twitch_token = token;
-            // validate it
-            this.validateToken();
+            // validate it - leave to outer thing to start
+            //this.validateToken();
             return;
         }
     }
@@ -71,18 +71,25 @@ class tokenManager extends EventEmitter {
             return;
         }
 
-        let validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
-            method: "GET",
-            headers: {
-                Authorization: `OAuth ${this.twitch_token}`,
-            },
-        });
-        if (validateReq.status != 200) {
-            console.debug("Token failed", validateReq.status);
-            // the token is invalid
-            // try to generate
-            this.refreshToken();
-            return;
+        let validateReq = null;
+        try {
+            validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
+                method: "GET",
+                headers: {
+                    Authorization: `OAuth ${this.twitch_token}`,
+                },
+            });
+            if (validateReq.status != 200) {
+                console.debug("Token failed", validateReq.status);
+                // the token is invalid
+                // try to generate
+                this.refreshToken();
+                return;
+            }
+        } catch (e) {
+            // probably API was down
+            // self requeue?
+            throw new Error(e);
         }
 
         let validateRes = await validateReq.json();
@@ -151,13 +158,15 @@ class tokenManager extends EventEmitter {
     };
     _maintainceTimer = false;
 
+    start = this.validateToken;
+
     generateHeaders = () => {
         this.headers = {
             "Client-ID": this.twitch_client_id,
             "Authorization": `Bearer ${this.twitch_token}`,
             "Accept": "application/json",
             "Accept-Encoding": "gzip,deflate",
-            "User-Agent": "BarryTwitch Library"
+            "User-Agent": "BarryTwitch Library",
         };
         //console.debug("headers", this.headers);
     };
