@@ -1,3 +1,5 @@
+[![Node.js CI](https://github.com/BarryCarlyon/barry-twitch/actions/workflows/node.js.yml/badge.svg)](https://github.com/BarryCarlyon/barry-twitch/actions/workflows/node.js.yml)
+
 # Barry-Twitch
 
 Reusable things throwing in github for easier use in things
