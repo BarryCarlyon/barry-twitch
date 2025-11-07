@@ -5,16 +5,19 @@
     "main": "eventsub.js",
     "scripts": {
         "format": "prettier --write \"./**/*.{graphql,js,ts,jsx,tsx,md,mdx,css}\"",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "mocha"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "devDependencies": {
+        "chai": "^6.2.0",
+        "chai-as-promised": "^8.0.2",
         "prettier": "^3.6.2"
     },
     "type": "module",
     "dependencies": {
+        "mocha": "^11.7.5",
         "ws": "^8.18.3"
     }
 }
