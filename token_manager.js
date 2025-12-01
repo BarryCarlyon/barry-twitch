@@ -46,6 +46,7 @@ class tokenManager extends EventEmitter {
             if (this.token_type == "client_credentials") {
                 throw new Error("You passed a refresh token for Client Credentials");
             }
+            // this errors not posible!
             if (!client_secret) {
                 throw new Error("A refresh token was provided but without a secret");
             }
@@ -88,7 +89,10 @@ class tokenManager extends EventEmitter {
             }
         } catch (e) {
             // probably API was down
-            // self requeue?
+
+            // (re)initiate maintaince timer
+            this.maintainceTimer();
+            // throw it
             throw new Error(e);
         }
 
@@ -144,10 +148,13 @@ class tokenManager extends EventEmitter {
         // ie: close to expire lets go early
         this.emit("validated", validateRes);
 
-        // initiate maintaince timer
-        // @todo tweak the rules
-        //if (this.twitch_refresh != "" || this.twitch_client_secret != "") {
+        // (re)initiate maintaince timer
+        this.maintainceTimer();
+    };
+    maintainceTimer() {
         if (this.auto_maintain) {
+            console.log("is auto main", this);
+
             let stutter = Math.round(15 * 60 * (Math.random() + 1));
             // we got here as a client secret exists as well
             // otherwise we threw earlier
@@ -155,7 +162,7 @@ class tokenManager extends EventEmitter {
             // 15 miniutes
             this._maintainceTimer = setTimeout(this.validateToken, stutter * 1000);
         }
-    };
+    }
     _maintainceTimer = false;
 
     start = this.validateToken;
@@ -172,6 +179,7 @@ class tokenManager extends EventEmitter {
     };
 
     refreshToken = async () => {
+        console.log("in refresh");
         let url = new URL("https://id.twitch.tv/oauth2/token");
         let params = [
             ["client_id", this.twitch_client_id],
@@ -188,14 +196,24 @@ class tokenManager extends EventEmitter {
             params.push(["refresh_token", this.twitch_refresh]);
         }
 
-        url.search = new URLSearchParams(params).toString();
-
         // go refresh
-        let tokenReq = await fetch(url, {
-            method: "POST",
-            body: new URLSearchParams(params).toString(),
-        });
+        console.log("pre fetch");
+        let tokenReq = null;
+        try {
+            tokenReq = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams(params).toString(),
+            });
+        } catch (e) {
+            console.log("going to throw", e);
+            throw e;
+        }
+
         if (tokenReq.status != 200) {
+            console.log("non 200 throw failed refresh");
             throw new Error(
                 `Failed to get refresh token: ${tokenReq.status}//${await tokenReq.text()}`,
             );
