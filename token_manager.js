@@ -153,7 +153,7 @@ class tokenManager extends EventEmitter {
     };
     maintainceTimer() {
         if (this.auto_maintain) {
-            console.log("is auto main", this);
+            //console.log("is auto main", this);
 
             let stutter = Math.round(15 * 60 * (Math.random() + 1));
             // we got here as a client secret exists as well
