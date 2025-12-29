@@ -167,6 +167,7 @@ class tokenManager extends EventEmitter {
 
     start = this.validateToken;
 
+    headers = {};
     generateHeaders = () => {
         this.headers = {
             "Client-ID": this.twitch_client_id,
