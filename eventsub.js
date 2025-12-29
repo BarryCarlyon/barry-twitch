@@ -537,6 +537,83 @@ class Conduit extends EventEmitter {
         );
     };
 
+    // you can only specify one of these
+    findSubscriptionsValid = ["status", "type", "user_id", "subscription_id", "after"];
+    findSubscriptions = async (criteria, ret = []) => {
+        let p = [];
+        if (criteria) {
+            for (var k in criteria) {
+                if (this.findSubscriptionsValid.includes(k)) {
+                    p.push([k, criteria[k]]);
+                } else {
+                    // throw err?
+                }
+            }
+        }
+
+        let url = new URL("https://api.twitch.tv/helix/eventsub/subscriptions");
+        url.search = new URLSearchParams(p);
+
+        let req = await fetch(url, {
+            method: "GET",
+            headers: {
+                ...this.headers,
+            },
+        });
+        if (req.status != 200) {
+            throw new Error("Failed to lookup Subscriptions");
+        }
+        // total total_cost max_total_cost
+        let { data, pagination } = await req.json();
+        // merge - but only the ones for THIS conduit
+        // since we can't use a conduit filter
+        // ret = ret.concat(data);
+        let valid = [];
+        for (var x = 0; x < data.length; x++) {
+            let { transport } = data[x];
+            let { method, conduit_id } = transport;
+            if (method == "conduit" && conduit_id == this.conduit_id) {
+                valid.push(data[x]);
+            }
+        }
+        ret = ret.concat(valid);
+
+        if (pagination) {
+            let { cursor } = pagination;
+            if (cursor) {
+                criteria.after = cursor;
+                return this.findSubscriptions(criteria, ret);
+            }
+        }
+        return ret;
+    };
+    deleteSubscription = async (subscription_id) => {
+        console.log("Sim delete", subscription_id);
+
+        let u = new URL("https://api.twitch.tv/helix/eventsub/subscriptions");
+        u.search = new URLSearchParams([["id", subscription_id]]);
+        let req = await fetch(u, {
+            method: "DELETE",
+            headers: {
+                ...this.headers,
+            },
+        });
+        if (req.status != 204) {
+            throw new Error(`Failed to delete Subscription of ${subscription_id}`);
+        }
+        // delete ok
+        if (process.env.NODE_ENV != "production") {
+            console.log(`delete Subscription of ${subscription_id}`);
+        }
+    };
+    async findAndDeleteSubscriptions(criteria) {
+        let subs = await this.findSubscriptions(criteria);
+        for (var x = 0; x < subs.length; x++) {
+            console.log(subs[x].type, subs[x].id);
+            this.deleteSubscription(subs[x].id);
+        }
+    }
+
     logHelixResponse = (resp) => {
         console.debug(
             `Helix: ${resp.status} - ${resp.headers.get("ratelimit-remaining")}/${resp.headers.get("ratelimit-limit")}`,
