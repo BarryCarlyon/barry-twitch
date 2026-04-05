@@ -64,7 +64,6 @@ class tokenManager extends EventEmitter {
 
     infinityCheck = false;
     validateToken = async () => {
-        console.log(new Date(), "doing validation");
         if (this.twitch_token == "") {
             console.debug("No Token will generate");
             // can generate?
@@ -153,8 +152,6 @@ class tokenManager extends EventEmitter {
     };
     maintainceTimer() {
         if (this.auto_maintain) {
-            //console.log("is auto main", this);
-
             let stutter = Math.round(15 * 60 * (Math.random() + 1));
             // we got here as a client secret exists as well
             // otherwise we threw earlier
@@ -180,7 +177,6 @@ class tokenManager extends EventEmitter {
     };
 
     refreshToken = async () => {
-        console.log("in refresh");
         let url = new URL("https://id.twitch.tv/oauth2/token");
         let params = [
             ["client_id", this.twitch_client_id],
@@ -198,7 +194,6 @@ class tokenManager extends EventEmitter {
         }
 
         // go refresh
-        console.log("pre fetch");
         let tokenReq = null;
         try {
             tokenReq = await fetch(url, {
@@ -209,12 +204,10 @@ class tokenManager extends EventEmitter {
                 body: new URLSearchParams(params).toString(),
             });
         } catch (e) {
-            console.log("going to throw", e);
             throw e;
         }
 
         if (tokenReq.status != 200) {
-            console.log("non 200 throw failed refresh");
             throw new Error(
                 `Failed to get refresh token: ${tokenReq.status}//${await tokenReq.text()}`,
             );
