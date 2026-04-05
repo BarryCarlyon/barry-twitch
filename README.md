@@ -337,21 +337,25 @@ async function handleChatMessage({ metadata, payload }) {
 
 # Utilties
 
-`utilities.js` provides some helper functions.
+`utilities.js` provides some helper functions for chat bots to send messaging.
 
-Now that Announcments supports App Access Tokens, either kind of token works
+Now that Announcments supports App Access Tokens, either kind of token works.
+
+You provde it a client ID and a token but it will not maintain the token for you.
+
+You can provide either a User or an App Access Token, when using an App Access Token you have access to use the `for_source_only` parameter on API calls.
 
 ## Functions
 
-- constuctor
+### constuctor
 
 Requires a `string` which is a `Twitch Client ID`
 
-- generateHeaders
+### generateHeaders
 
-Internal use
+Internal use, generates the common headers for use in the stack
 
-- setToken
+### setToken
 
 Requires a `string` which is a `Twitch Access Token` of any type
 
@@ -359,32 +363,32 @@ It will validate said token and infer it's type
 
 Additionally checks the returned ClientID checks what the class was constructed with
 
-- createChatMessage(a,b,c,d)
+### createChatMessage(broadcaster_id,sender_id,message,options)
 
-| idx | field          | type        | description                            |
-| --- | -------------- | ----------- | -------------------------------------- |
-| a   | broadcaster_id | string      | the channel ID to send to              |
-| b   | sender_id      | string      | the user ID to send as                 |
-| c   | message        | string      | the Message to send max 500 characters |
-| d   | options        | object/null | options                                |
+| field          | type        | description                            |
+| -------------- | ----------- | -------------------------------------- |
+| broadcaster_id | string      | the channel ID to send to              |
+| sender_id      | string      | the user ID to send as                 |
+| message        | string      | the Message to send max 500 characters |
+| options        | object/null | options                                |
 
-### Options
+#### Options
 
 | option                  | type      | description                                                           |
 | ----------------------- | --------- | --------------------------------------------------------------------- |
 | reply_parent_message_id | UUID/null | to replay to anher message                                            |
 | for_source_only         | boolean   | defaults `true` controls where a message goes during shared chat mode |
 
-- createAnnouncement(a,b,c,d)
+### createAnnouncement(broadcaster_id,moderator_id,message,options)
 
-| idx | field          | type        | description                                                |
-| --- | -------------- | ----------- | ---------------------------------------------------------- |
-| a   | broadcaster_id | string      | the channel ID to send to                                  |
-| b   | moderator_id   | string      | the user ID of the moderator of the broadcaster to send as |
-| c   | message        | string      | the Message to send max 500 characters                     |
-| d   | options        | object/null | options                                                    |
+| field          | type        | description                                                |
+| -------------- | ----------- | ---------------------------------------------------------- |
+| broadcaster_id | string      | the channel ID to send to                                  |
+| moderator_id   | string      | the user ID of the moderator of the broadcaster to send as |
+| message        | string      | the Message to send max 500 characters                     |
+| options        | object/null | options                                                    |
 
-### Options
+#### Options
 
 | option          | type    | description                                                                                           |
 | --------------- | ------- | ----------------------------------------------------------------------------------------------------- |
