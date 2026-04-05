@@ -24,24 +24,6 @@ let VALID_TOKEN = "validtoken";
 chai.config.includeStack = true;
 chai.config.showDiff = true;
 
-/*
-basic setup
-*/
-
-//https://stackoverflow.com/questions/45466040/verify-that-an-exception-is-thrown-using-mocha-chai-and-async-await
-const expectThrowsAsync = async (method, errorMessage) => {
-    let error = null;
-    try {
-        await method();
-    } catch (err) {
-        error = err;
-    }
-    expect(error).to.be.an("Error");
-    if (errorMessage) {
-        expect(error.message).to.equal(errorMessage);
-    }
-};
-
 describe("Token Manager", () => {
     it("throws cannot destructure", () => {
         expect(() => {

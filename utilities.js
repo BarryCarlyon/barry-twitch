@@ -32,7 +32,7 @@ class Twitch {
             method: "GET",
             headers: {
                 Accept: "application/json",
-                Authorizatiob: `Bearer ${this.access_token}`,
+                Authorization: `Bearer ${this.access_token}`,
             },
         });
         if (validate.status != 200) {
