@@ -48,7 +48,7 @@ describe("Token Manager", () => {
         }).to.throw(Error, /^Invalid Token Type$/);
     });
 
-    it("missing cid and/or secret", () => {
+    it("missing cid and/or secret, token_type specified", () => {
         expect(() => {
             new tokenManager({
                 token_type: "client_credentials",
@@ -56,7 +56,7 @@ describe("Token Manager", () => {
         }).to.throw(Error, /^Client ID and Client Secret is required$/);
     });
 
-    it("missing cid and/or secret", () => {
+    it("missing cid and/or secret, token_type and client_id specified", () => {
         expect(() => {
             new tokenManager({
                 token_type: "client_credentials",
