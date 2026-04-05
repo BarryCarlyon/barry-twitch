@@ -217,7 +217,10 @@ await redisClient.connect();
 import { Conduit, eventsubSocket } from "barry-twitch/eventsub.js";
 import { tokenManager } from "barry-twitch/token_manager.js";
 
-let appAccessToken = await redisClient.HGET("twitch_tokens", `app_access_${process.env.TWITCH_CLIENT_ID}`);
+let appAccessToken = await redisClient.HGET(
+    "twitch_tokens",
+    `app_access_${process.env.TWITCH_CLIENT_ID}`,
+);
 
 // create a token manager for the app access token
 let twitchToken = new tokenManager({
@@ -241,7 +244,11 @@ let myShard = new eventsubSocket({
 twitchToken.on("access_token", async (token_set) => {
     let { access_token } = token_set;
     console.log("Generated access token");
-    await redisClient.HSET("twitch_tokens", `app_access_${process.env.TWITCH_CLIENT_ID}`, access_token);
+    await redisClient.HSET(
+        "twitch_tokens",
+        `app_access_${process.env.TWITCH_CLIENT_ID}`,
+        access_token,
+    );
 });
 
 twitchToken.once("validated", firstTokenReady);
@@ -325,5 +332,95 @@ async function handleChatMessage({ metadata, payload }) {
     let { message } = event;
 
     console.log(`On ${broadcaster.login} From ${chatter.login} - ${message}`);
+});
+```
+
+# Utilties
+
+`utilities.js` provides some helper functions.
+
+Now that Announcments supports App Access Tokens, either kind of token works
+
+## Functions
+
+- constuctor
+
+Requires a `string` which is a `Twitch Client ID`
+
+- generateHeaders
+
+Internal use
+
+- setToken
+
+Requires a `string` which is a `Twitch Access Token` of any type
+
+It will validate said token and infer it's type
+
+Additionally checks the returned ClientID checks what the class was constructed with
+
+- createChatMessage(a,b,c,d)
+
+| idx | field          | type        | description                            |
+| --- | -------------- | ----------- | -------------------------------------- |
+| a   | broadcaster_id | string      | the channel ID to send to              |
+| b   | sender_id      | string      | the user ID to send as                 |
+| c   | message        | string      | the Message to send max 500 characters |
+| d   | options        | object/null | options                                |
+
+### Options
+
+| option                  | type      | description                                                           |
+| ----------------------- | --------- | --------------------------------------------------------------------- |
+| reply_parent_message_id | UUID/null | to replay to anher message                                            |
+| for_source_only         | boolean   | defaults `true` controls where a message goes during shared chat mode |
+
+- createAnnouncement(a,b,c,d)
+
+| idx | field          | type        | description                                                |
+| --- | -------------- | ----------- | ---------------------------------------------------------- |
+| a   | broadcaster_id | string      | the channel ID to send to                                  |
+| b   | moderator_id   | string      | the user ID of the moderator of the broadcaster to send as |
+| c   | message        | string      | the Message to send max 500 characters                     |
+| d   | options        | object/null | options                                                    |
+
+### Options
+
+| option          | type    | description                                                                                           |
+| --------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| color           | string  | what color to decorate the announcement as, one of `["blue", "green", "orange", "purple", "primary"]` |
+| for_source_only | boolean | defaults `true` controls where a message goes during shared chat mode                                 |
+
+## Usage Examples
+
+```js
+import "dotenv/config";
+
+import { Twitch } from "barry-twitch/utilities.js";
+
+let appAccess = "tokenFromStorage";
+
+let helper = new Twitch(process.env.TWITCH_CLIENT_ID);
+try {
+    helper.setToken(appAccess);
+} catch (e) {
+    console.error("Token is dead");
+}
+
+// send a chat message
+let chatResponse = await helper.createChatMessage("123123", "321321", "Some Message");
+// send a chat message that only goes to the home channel when shared chat is enabled
+let chatResponse = await helper.createChatMessage("123123", "321321", "Some Message", {
+    for_source_only: true,
+});
+// reply a chat message
+let chatReplyResponse = await helper.createChatMessage("123123", "321321", "Some Message", {
+    reply_parent_message_id: "SomeUUID",
+});
+// send a Channel Accent announcment
+let createAnnouncement = await helper.createChatMessage("123123", "321321", "Some Message");
+// send a Green announcment
+let createAnnouncement = await helper.createChatMessage("123123", "321321", "Some Message", {
+    color: "green",
 });
 ```

@@ -1,19 +1,18 @@
 class Twitch {
     client_id = "";
     access_token = "";
+    app_access = false;
 
-    constructor({ client_id, access_token }) {
-        if (!client_id || !access_token) {
-            throw new Error("Client ID and Token are required");
+    constructor(client_id) {
+        if (!client_id) {
+            throw new Error("Client ID is required");
         }
 
         this.client_id = client_id;
-        this.access_token = access_token;
-
-        this.generateHeaders();
     }
 
     generateHeaders = () => {
+        // set headers
         this.headers = {
             "Client-ID": this.client_id,
             "Authorization": `Bearer ${this.access_token}`,
@@ -22,11 +21,33 @@ class Twitch {
         };
     };
 
-    setToken = (access_token) => {
+    setToken = async (access_token) => {
         if (!access_token) {
             throw new Error("A Token is required");
         }
         this.access_token = access_token;
+        // infer type
+        // validate and infer type
+        let validate = await fetch("https://id.twitch.tv/oauth2/validate", {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+                Authorizatiob: `Bearer ${this.access_token}`,
+            },
+        });
+        if (validate.status != 200) {
+            throw new Error("Invalid token, or has expired");
+        }
+        // we could infer clientID
+        let { user_id, client_id } = await validate.json();
+        if (client_id != this.client_id) {
+            throw new Error("The Token comes from a different Client ID");
+        }
+        if (user_id) {
+            this.app_access = false;
+        } else {
+            this.app_access = true;
+        }
 
         this.generateHeaders();
     };
@@ -35,7 +56,7 @@ class Twitch {
         broadcaster_id,
         sender_id,
         message,
-        reply_parent_message_id = null,
+        { reply_parent_message_id = null, for_source_only = true },
     ) => {
         let payload = {
             broadcaster_id,
@@ -43,6 +64,13 @@ class Twitch {
             message,
             reply_parent_message_id,
         };
+        // we check as it 400's if app access token
+        // and the key is present
+        if (this.app_access) {
+            if (undefined !== for_source_only) {
+                payload.for_source_only = for_source_only;
+            }
+        }
 
         return await fetch("https://api.twitch.tv/helix/chat/messages", {
             method: "POST",
@@ -54,7 +82,12 @@ class Twitch {
         });
     };
 
-    createAnnouncement = async (broadcaster_id, moderator_id, message, color = "primary") => {
+    createAnnouncement = async (
+        broadcaster_id,
+        moderator_id,
+        message,
+        { color = "primary", for_source_only = true },
+    ) => {
         if (!broadcaster_id || broadcaster_id == "") {
             throw new Error("No Broadcaster ID");
         }
@@ -77,6 +110,13 @@ class Twitch {
             message,
             color,
         };
+        // we check as it 400's if app access token
+        // and the key is present
+        if (this.app_access) {
+            if (undefined !== for_source_only) {
+                payload.for_source_only = for_source_only;
+            }
+        }
 
         return await fetch("https://api.twitch.tv/helix/chat/announcements", {
             method: "POST",
