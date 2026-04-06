@@ -368,4 +368,24 @@ describe("Twitch Utilities", () => {
         //expect(apiNock).to.have.been.requested;
         expect(validateNock).to.have.been.requested;
     });
+
+    it("Announcment is sent", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        const apiNock = nock("https://api.twitch.tv").post("/helix/chat/announcements").reply(200);
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+        let annResponse = await tw.createAnnouncement("123123", "321321", "foobar");
+
+        expect(annResponse.status).to.be.equal(200);
+        expect(validateNock).to.have.been.requested;
+        expect(apiNock).to.have.been.requested;
+    });
 });
