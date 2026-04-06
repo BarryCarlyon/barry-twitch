@@ -369,7 +369,7 @@ describe("Twitch Utilities", () => {
         expect(validateNock).to.have.been.requested;
     });
 
-    it("Announcment is sent", async () => {
+    it("Announcement is sent", async () => {
         const validateNock = nock("https://id.twitch.tv")
             .get("/oauth2/validate")
             .reply(200, {
