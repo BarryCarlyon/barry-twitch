@@ -52,12 +52,21 @@ class Twitch {
         this.generateHeaders();
     };
 
-    createChatMessage = async (
-        broadcaster_id,
-        sender_id,
-        message,
-        { reply_parent_message_id = null, for_source_only = true },
-    ) => {
+    createChatMessage = async (broadcaster_id, sender_id, message, options) => {
+        if (!broadcaster_id || broadcaster_id == "") {
+            throw new Error("No Broadcaster ID");
+        }
+        if (!sender_id || sender_id == "") {
+            throw new Error("No Sender ID");
+        }
+        if (!message || message == "") {
+            throw new Error("No Message");
+        }
+        if (message.length > 500) {
+            throw new Error("Message longer than 500 characters");
+        }
+
+        let { reply_parent_message_id, for_source_only } = options ? options : {};
         let payload = {
             broadcaster_id,
             sender_id,
@@ -82,12 +91,7 @@ class Twitch {
         });
     };
 
-    createAnnouncement = async (
-        broadcaster_id,
-        moderator_id,
-        message,
-        { color = "primary", for_source_only = true },
-    ) => {
+    createAnnouncement = async (broadcaster_id, moderator_id, message, options) => {
         if (!broadcaster_id || broadcaster_id == "") {
             throw new Error("No Broadcaster ID");
         }
@@ -97,6 +101,16 @@ class Twitch {
         if (!message || message == "") {
             throw new Error("No Message");
         }
+        if (message.length > 500) {
+            throw new Error("Message longer than 500 characters");
+        }
+
+        let { color, for_source_only } = options ? options : {};
+
+        if (!color || undefined == color) {
+            color = "primary";
+        }
+
         let colors = ["blue", "green", "orange", "purple", "primary"];
         if (!colors.includes(color)) {
             throw new Error(

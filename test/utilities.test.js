@@ -98,4 +98,274 @@ describe("Twitch Utilities", () => {
             "Accept-Encoding": "gzip",
         });
     });
+
+    it("id.twitch.tv not there", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .replyWithError(
+                Object.assign(new Error("getaddrinfo ENOTFOUND id.twitch.tv"), {
+                    code: "ENOTFOUND",
+                }),
+            );
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+
+        await expect(tw.setToken(VALID_TOKEN)).to.be.rejectedWith();
+        expect(validateNock).to.have.been.requested;
+    });
+
+    it("api.twitch.tv not there", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        const apiNock = nock("https://api.twitch.tv")
+            .post("/helix/chat/messages")
+            .replyWithError(
+                Object.assign(new Error("getaddrinfo ENOTFOUND api.twitch.tv"), {
+                    code: "ENOTFOUND",
+                }),
+            );
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createChatMessage("123123", "321321", "foobar")).to.be.rejectedWith();
+        expect(validateNock).to.have.been.requested;
+        expect(apiNock).to.have.been.requested;
+    });
+
+    it("Send Chat Message Missing Broadcaster ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createChatMessage()).to.be.rejectedWith(Error, /^No Broadcaster ID$/);
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Send Chat Message Missing Moderator ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createChatMessage("123123", "", "")).to.be.rejectedWith(
+            Error,
+            /^No Sender ID$/,
+        );
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Send Chat Message Missing Message", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createChatMessage("123123", "321312", "")).to.be.rejectedWith(
+            Error,
+            /^No Message$/,
+        );
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Send Chat MessageMessage Too Long", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(
+            tw.createChatMessage(
+                "123123",
+                "321312",
+                "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567891",
+            ),
+        ).to.be.rejectedWith(Error, /^Message longer than 500 characters$/);
+        expect(validateNock).to.have.been.requested;
+    });
+
+    it("Sends chat message", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        const apiNock = nock("https://api.twitch.tv").post("/helix/chat/messages").reply(200);
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+        let chatResponse = await tw.createChatMessage("123123", "321321", "foobar");
+
+        expect(chatResponse.status).to.be.equal(200);
+        expect(validateNock).to.have.been.requested;
+        expect(apiNock).to.have.been.requested;
+    });
+
+    /*
+    it("Announcment uses default color", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        //const apiNock = nock("https://api.twitch.tv").post("/helix/chat/announcements").reply(200);
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+        //let announcementResponse = await tw.createAnnouncement("123123", "321321", "foobar");
+
+        await expect(tw.createAnnouncement("123123", "321321", "foobar")).to.throw(
+            Error,
+            /^Invalid color$/,
+        );
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+    });
+    */
+
+    it("Announcment Missing Broadcaster ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createAnnouncement()).to.be.rejectedWith(Error, /^No Broadcaster ID$/);
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Announcment Missing Moderator ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createAnnouncement("123123", "", "")).to.be.rejectedWith(
+            Error,
+            /^No Moderator ID$/,
+        );
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Announcment Missing Message", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createAnnouncement("123123", "321312", "")).to.be.rejectedWith(
+            Error,
+            /^No Message$/,
+        );
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Announcment Message Too Long", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(
+            tw.createAnnouncement(
+                "123123",
+                "321312",
+                "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567891",
+            ),
+        ).to.be.rejectedWith(Error, /^Message longer than 500 characters$/);
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+
+    it("Announcment invalid color", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        //const apiNock = nock("https://api.twitch.tv").post("/helix/chat/announcements").reply(200);
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+        //let announcementResponse = await tw.createAnnouncement("123123", "321321", "foobar");
+
+        await expect(
+            tw.createAnnouncement("123123", "321321", "foobar", { color: "melon" }),
+        ).to.be.rejectedWith(Error, /^Invalid color/);
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
 });
