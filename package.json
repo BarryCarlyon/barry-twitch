@@ -1,20 +1,26 @@
 {
     "name": "barry-twitch",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "description": "",
     "main": "eventsub.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "format": "prettier --write \"./**/*.{graphql,js,ts,jsx,tsx,md,mdx,css}\"",
+        "test": "mocha"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "devDependencies": {
-        "prettier": "^3.3.3",
-        "prettier-plugin-organize-imports": "^4.0.0"
+        "chai": "^6.2.2",
+        "chai-as-promised": "^8.0.2",
+        "chai-eventemitter2": "^0.2.1",
+        "chai-nock": "^1.3.0",
+        "mocha": "^11.7.5",
+        "nock": "^14.0.12",
+        "prettier": "^3.8.1"
     },
     "type": "module",
     "dependencies": {
-        "ws": "^8.18.0"
+        "ws": "^8.20.0"
     }
 }

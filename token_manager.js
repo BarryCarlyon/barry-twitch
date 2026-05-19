@@ -27,6 +27,10 @@ class tokenManager extends EventEmitter {
     }) {
         super();
 
+        const allow_types = ["user_token", "client_credentials"];
+        if (!allow_types.includes(token_type)) {
+            throw new Error("Invalid Token Type");
+        }
         this.token_type = token_type;
         this.auto_maintain = auto_maintain;
 
@@ -39,6 +43,10 @@ class tokenManager extends EventEmitter {
         }
 
         if (refresh) {
+            if (this.token_type == "client_credentials") {
+                throw new Error("You passed a refresh token for Client Credentials");
+            }
+            // this errors not posible!
             if (!client_secret) {
                 throw new Error("A refresh token was provided but without a secret");
             }
@@ -48,15 +56,14 @@ class tokenManager extends EventEmitter {
         if (token) {
             // run with token
             this.twitch_token = token;
-            // validate it
-            this.validateToken();
+            // validate it - leave to outer thing to start
+            //this.validateToken();
             return;
         }
     }
 
     infinityCheck = false;
     validateToken = async () => {
-        console.log(new Date(), "doing validation");
         if (this.twitch_token == "") {
             console.debug("No Token will generate");
             // can generate?
@@ -64,18 +71,28 @@ class tokenManager extends EventEmitter {
             return;
         }
 
-        let validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
-            method: "GET",
-            headers: {
-                Authorization: `OAuth ${this.twitch_token}`,
-            },
-        });
-        if (validateReq.status != 200) {
-            console.debug("Token failed", validateReq.status);
-            // the token is invalid
-            // try to generate
-            this.refreshToken();
-            return;
+        let validateReq = null;
+        try {
+            validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
+                method: "GET",
+                headers: {
+                    Authorization: `OAuth ${this.twitch_token}`,
+                },
+            });
+            if (validateReq.status != 200) {
+                console.debug("Token failed", validateReq.status);
+                // the token is invalid
+                // try to generate
+                this.refreshToken();
+                return;
+            }
+        } catch (e) {
+            // probably API was down
+
+            // (re)initiate maintaince timer
+            this.maintainceTimer();
+            // throw it
+            throw new Error(e);
         }
 
         let validateRes = await validateReq.json();
@@ -85,18 +102,24 @@ class tokenManager extends EventEmitter {
             throw new Error('Token is NOT app access/client credentials');
         }
         */
+        let new_token_type = "";
         if (validateRes.hasOwnProperty("user_id")) {
-            this.token_type = "user_token";
+            new_token_type = "user_token";
             this.token_user_id = validateRes.user_id;
             // enforce no drop
             this.allow_client_creds = false;
         } else {
-            this.token_type = "client_credentials";
+            new_token_type = "client_credentials";
         }
 
         if (this.twitch_client_id != validateRes.client_id) {
             // compare failed
             throw new Error("Token ClientID does not match specified client ID");
+        }
+        if (new_token_type != this.token_type) {
+            throw new Error(
+                `Mismatched token type detected: was ${this.token_type} now: ${new_token_type}`,
+            );
         }
 
         // check the duration left on the token
@@ -124,9 +147,10 @@ class tokenManager extends EventEmitter {
         // ie: close to expire lets go early
         this.emit("validated", validateRes);
 
-        // initiate maintaince timer
-        // @todo tweak the rules
-        //if (this.twitch_refresh != "" || this.twitch_client_secret != "") {
+        // (re)initiate maintaince timer
+        this.maintainceTimer();
+    };
+    maintainceTimer() {
         if (this.auto_maintain) {
             let stutter = Math.round(15 * 60 * (Math.random() + 1));
             // we got here as a client secret exists as well
@@ -135,15 +159,19 @@ class tokenManager extends EventEmitter {
             // 15 miniutes
             this._maintainceTimer = setTimeout(this.validateToken, stutter * 1000);
         }
-    };
+    }
     _maintainceTimer = false;
 
+    start = this.validateToken;
+
+    headers = {};
     generateHeaders = () => {
         this.headers = {
             "Client-ID": this.twitch_client_id,
             "Authorization": `Bearer ${this.twitch_token}`,
             "Accept": "application/json",
-            "Accept-Encoding": "gzip",
+            "Accept-Encoding": "gzip,deflate",
+            "User-Agent": "BarryTwitch Library",
         };
         //console.debug("headers", this.headers);
     };
@@ -165,13 +193,20 @@ class tokenManager extends EventEmitter {
             params.push(["refresh_token", this.twitch_refresh]);
         }
 
-        url.search = new URLSearchParams(params).toString();
-
         // go refresh
-        let tokenReq = await fetch(url, {
-            method: "POST",
-            body: new URLSearchParams(params).toString(),
-        });
+        let tokenReq = null;
+        try {
+            tokenReq = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams(params).toString(),
+            });
+        } catch (e) {
+            throw e;
+        }
+
         if (tokenReq.status != 200) {
             throw new Error(
                 `Failed to get refresh token: ${tokenReq.status}//${await tokenReq.text()}`,
@@ -184,7 +219,7 @@ class tokenManager extends EventEmitter {
         }
         // emit token as we don't handle storage the program does
         // the program might also need the token itself for whatever reason
-        this.emit("access_tokens", {
+        this.emit("access_token", {
             access_token,
             refresh_token,
         });

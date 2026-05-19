@@ -32,7 +32,6 @@ class eventsubSocket extends EventEmitter {
     }
 
     mainUrl = "wss://eventsub.wss.twitch.tv/ws";
-    //mainUrl = "ws://127.0.0.1:8080/ws";
     backoff = 0;
     backoffStack = 100;
 
@@ -113,6 +112,11 @@ class eventsubSocket extends EventEmitter {
             let { message_id, message_type, message_timestamp } = metadata;
             //console.debug(`Recv ${message_id} - ${message_type}`);
 
+            // reset silence
+            if (message_type != "session_welcome") {
+                this.silence();
+            }
+
             switch (message_type) {
                 case "session_welcome":
                     let { session } = payload;
@@ -140,7 +144,6 @@ class eventsubSocket extends EventEmitter {
                 case "session_keepalive":
                     //console.debug(`Recv KeepAlive - ${message_type}`);
                     this.emit("session_keepalive");
-                    this.silence();
                     break;
 
                 case "notification":
@@ -157,7 +160,6 @@ class eventsubSocket extends EventEmitter {
 
                     this.emit("notification", { metadata, payload });
                     this.emit(type, { metadata, payload });
-                    this.silence();
 
                     break;
 
@@ -215,7 +217,6 @@ class eventsubSocket extends EventEmitter {
 
 class Conduit extends EventEmitter {
     twitch_client_id = "";
-    twitch_client_secret = "";
 
     twitch_token = "";
 
@@ -223,83 +224,79 @@ class Conduit extends EventEmitter {
 
     constructor({
         client_id,
-        client_secret,
 
         token,
 
         conduit_id,
-        shard_id,
+        shard_id = "0",
     }) {
         super();
 
         if (conduit_id) {
             this.conduit_id = conduit_id;
         }
-        // since it can be 0
+        // it can be 0 but it's a string
         if (undefined !== shard_id) {
             this.shard_id = shard_id;
         }
 
-        if (client_id && client_secret) {
-            // self managing token
-            this.twitch_client_id = client_id;
-            this.twitch_client_secret = client_secret;
-        } else if (client_id) {
-            // specified a clientID to compare the token to
-            // without doing "infer" CID from token
-            this.twitch_client_id = client_id;
+        if (!client_id) {
+            throw new Error("Missing ClientID");
         }
+
+        // specified a clientID to compare the token to
+        // without doing "infer" CID from token
+        this.twitch_client_id = client_id;
 
         if (token) {
             // run with token
             this.twitch_token = token;
             // validate it
-            this.validateToken();
+            //this.validateToken();
             return;
         }
-
-        if (client_id && client_secret) {
-            // no token so generate
-            this.generateToken();
-            return;
-        }
-
-        throw new Error("Did not init with ClientID/Secret pair or a token");
     }
 
     validateToken = async () => {
-        if (this.twitch_token == "") {
-            console.debug("No Token will generate");
-            // can generate?
-            this.generateToken();
-            return;
+        if (!this.twitch_token || this.twitch_token == "") {
+            throw new Error("Conduit Cannot - No token");
         }
 
-        let validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
-            method: "GET",
-            headers: {
-                Authorization: `OAuth ${this.twitch_token}`,
-            },
-        });
+        let validateReq = null;
+
+        try {
+            validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
+                method: "GET",
+                headers: {
+                    Authorization: `OAuth ${this.twitch_token}`,
+                },
+            });
+        } catch (e) {
+            //console.log(e);
+            throw new Error("Conduit - Validate Request Failed");
+        }
+
         if (validateReq.status != 200) {
             console.debug("Token failed", validateReq.status);
             // the token is invalid
             // try to generate
-            this.generateToken();
-            return;
+            throw new Error("Conduit Cannot - Token Failed Validation");
         }
 
         let validateRes = await validateReq.json();
 
         if (validateRes.hasOwnProperty("user_id")) {
-            throw new Error("Token is NOT app access/client credentials.");
+            throw new Error("Token is NOT app access/client credentials");
         }
 
+        /*
         if (this.twitch_client_id == "") {
             // infer
             console.debug("Inferring CID");
             this.twitch_client_id = validateRes.client_id;
-        } else if (this.twitch_client_id != validateRes.client_id) {
+        } else
+        */
+        if (this.twitch_client_id != validateRes.client_id) {
             // compare
             throw new Error("Token ClientID does not match specified client ID");
         }
@@ -307,13 +304,6 @@ class Conduit extends EventEmitter {
         // check the duration left on the token
         // account for legacy inifinity tokens
         console.debug(`The Token has ${validateRes.expires_in}`);
-        if (validateRes.expires_in < 30 * 60 && validateRes.expires_in > 0) {
-            // need refresh
-
-            // generate
-            this.generateToken();
-            return;
-        }
 
         // token passed validation check
         this.generateHeaders();
@@ -321,7 +311,10 @@ class Conduit extends EventEmitter {
         // as the program can force a generate if it wants
         // ie: close to expire lets go early
         this.emit("validated", validateRes);
+
+        return;
     };
+    start = this.validateToken;
 
     generateHeaders = () => {
         this.headers = {
@@ -330,42 +323,10 @@ class Conduit extends EventEmitter {
             "Accept": "application/json",
             "Accept-Encoding": "gzip",
         };
-        console.debug("headers", this.headers);
     };
+
     setToken = (token) => {
         this.twitch_token = token;
-        this.validateToken();
-    };
-
-    generateToken = async () => {
-        console.debug("Generating a token");
-        if (
-            this.twitch_client_id == null ||
-            this.twitch_client_secret == null ||
-            this.twitch_client_id == "" ||
-            this.twitch_client_secret == ""
-        ) {
-            throw new Error("No Client ID/Secret, cannot generate token");
-        }
-
-        let tokenReq = await fetch("https://id.twitch.tv/oauth2/token", {
-            method: "POST",
-            body: new URLSearchParams([
-                ["client_id", this.twitch_client_id],
-                ["client_secret", this.twitch_client_secret],
-                ["grant_type", "client_credentials"],
-            ]),
-        });
-        if (tokenReq.status != 200) {
-            throw new Error(`Failed to get a token: ${tokenReq.status}//${await tokenReq.text()}`);
-        }
-        let { access_token } = await tokenReq.json();
-        this.twitch_token = access_token;
-        // emit token as we don't handle storage the program does
-        // the program might also need the token itself for whatever reason
-        this.emit("access_token", this.twitch_token);
-        // final check
-        this.validateToken();
     };
 
     conduit_id = "";
@@ -395,7 +356,7 @@ class Conduit extends EventEmitter {
                 ...this.headers,
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ shard_count: 1 }),
+            body: JSON.stringify({ shard_count }),
         });
         if (createReq.status != 200) {
             throw new Error(
@@ -460,10 +421,9 @@ class Conduit extends EventEmitter {
             },
         });
         if (conduitsReq.status != 200) {
-            throw new Error(
-                `Failed to Get Conduits ${conduitsReq.status}//${await conduitsReq.text()}`,
-                { cause: "Fatal" },
-            );
+            //                 ${conduitsReq.status}//${await conduitsReq.text()}`,
+            throw new Error(`Failed to Get Conduits`);
+            //, { cause: "Fatal" });
         }
         let { data } = await conduitsReq.json();
         for (var x = 0; x < data.length; x++) {
@@ -477,7 +437,7 @@ class Conduit extends EventEmitter {
 
         this.emit("conduitNotFound");
         //throw new Error("Conduit Not Found", { cause: "NotFound" });
-        return false;
+        return null;
     };
 
     getShards = async () => {
@@ -488,6 +448,10 @@ class Conduit extends EventEmitter {
     // that logic just doesn't makes sense in this lib
     updateShard = async () => {
         // is the shardID valid?
+        if (!this.shard_id || !this.session_id) {
+            throw new Error("Missing Shard ID or Session ID");
+        }
+
         console.debug(`on ${this.conduit_id} setting ${this.shard_id} to ${this.session_id}`);
 
         // go for update
@@ -512,13 +476,13 @@ class Conduit extends EventEmitter {
         });
         if (shardUpdate.status != 202) {
             // major fail
-            throw new Error(
-                `Failed to shardUpdate ${shardUpdate.status} - ${await shardUpdate.text()}`,
-            );
+            // ${shardUpdate.status} - ${await shardUpdate.text()}`,
+            throw new Error(`Failed to shardUpdate`);
         }
         let { data, errors } = await shardUpdate.json();
+
         if (errors && errors.length > 0) {
-            console.error(errors);
+            //console.error(errors);
             this.emit("shardUpdate", { data, errors });
             throw new Error(`Failed to shardUpdate ${shardUpdate.status}`);
         }
@@ -573,189 +537,82 @@ class Conduit extends EventEmitter {
         );
     };
 
-    logHelixResponse = (resp) => {
-        console.debug(
-            `Helix: ${resp.status} - ${resp.headers.get("ratelimit-remaining")}/${resp.headers.get("ratelimit-limit")}`,
-        );
-    };
-}
-
-class ESWebSocket extends EventEmitter {
-    twitch_client_id = "";
-
-    twitch_token = "";
-
-    headers = {};
-
-    constructor({ client_id, token }) {
-        super();
-
-        if (!token || token == "") {
-            throw new Error("A Token is required");
+    // you can only specify one of these
+    findSubscriptionsValid = ["status", "type", "user_id", "subscription_id", "after"];
+    findSubscriptions = async (criteria, ret = []) => {
+        let p = [];
+        if (criteria) {
+            for (var k in criteria) {
+                if (this.findSubscriptionsValid.includes(k)) {
+                    p.push([k, criteria[k]]);
+                } else {
+                    // throw err?
+                }
+            }
         }
 
-        if (client_id) {
-            // specified a clientID to compare the token to
-            // without doing "infer" CID from token
-            this.twitch_client_id = client_id;
-        }
+        let url = new URL("https://api.twitch.tv/helix/eventsub/subscriptions");
+        url.search = new URLSearchParams(p);
 
-        // run with token
-        this.twitch_token = token;
-        // validate it
-        this.validateToken();
-    }
-
-    validateToken = async () => {
-        let validateReq = await fetch("https://id.twitch.tv/oauth2/validate", {
+        let req = await fetch(url, {
             method: "GET",
             headers: {
-                Authorization: `OAuth ${this.twitch_token}`,
+                ...this.headers,
             },
         });
-        if (validateReq.status != 200) {
-            console.debug("Token failed", validateReq.status);
-            // the token is invalid
-            // try to generate
-            this.generateToken();
-            return;
+        if (req.status != 200) {
+            throw new Error("Failed to lookup Subscriptions");
         }
-
-        let validateRes = await validateReq.json();
-
-        if (!validateRes.hasOwnProperty("user_id")) {
-            throw new Error("Token is NOT user access");
-        }
-
-        if (this.twitch_client_id == "") {
-            // infer
-            console.debug("Inferring CID");
-            this.twitch_client_id = validateRes.client_id;
-        } else if (this.twitch_client_id != validateRes.client_id) {
-            // compare
-            throw new Error("Token ClientID does not match specified client ID");
-        }
-
-        // check the duration left on the token
-        // account for legacy inifinity tokens
-        console.debug(`The Token has ${validateRes.expires_in}`);
-        if (validateRes.expires_in < 30 * 60 && validateRes > 0) {
-            // need refresh
-            if (!this.infinityCheck && validateRes.expires_in == 0) {
-                this.infinityCheck = true;
-                this.validateToken();
-                return;
+        // total total_cost max_total_cost
+        let { data, pagination } = await req.json();
+        // merge - but only the ones for THIS conduit
+        // since we can't use a conduit filter
+        // ret = ret.concat(data);
+        let valid = [];
+        for (var x = 0; x < data.length; x++) {
+            let { transport } = data[x];
+            let { method, conduit_id } = transport;
+            if (method == "conduit" && conduit_id == this.conduit_id) {
+                valid.push(data[x]);
             }
-            this.infinityCheck = false;
-
-            // generate
-            this.generateToken();
-            return;
         }
+        ret = ret.concat(valid);
 
-        // token passed validation check
-        this.generateHeaders();
-        // we'll emit
-        // as the program can force a generate if it wants
-        // ie: close to expire lets go early
-        this.emit("validated", validateRes);
-    };
-
-    generateHeaders = () => {
-        this.headers = {
-            "Client-ID": this.twitch_client_id,
-            "Authorization": `Bearer ${this.twitch_token}`,
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-        };
-        console.debug("headers", this.headers);
-    };
-    setToken = (token) => {
-        this.twitch_token = token;
-        this.validateToken();
-    };
-
-    generateToken = async () => {
-        console.debug("Generating a token");
-        if (
-            this.twitch_client_id == null ||
-            this.twitch_client_secret == null ||
-            this.twitch_client_id == "" ||
-            this.twitch_client_secret == ""
-        ) {
-            throw new Error("No Client ID/Secret, cannot generate token");
+        if (pagination) {
+            let { cursor } = pagination;
+            if (cursor) {
+                criteria.after = cursor;
+                return this.findSubscriptions(criteria, ret);
+            }
         }
-
-        let tokenReq = await fetch("https://id.twitch.tv/oauth2/token", {
-            method: "POST",
-            body: new URLSearchParams([
-                ["client_id", this.twitch_client_id],
-                ["client_secret", this.twitch_client_secret],
-                ["grant_type", "client_credentials"],
-            ]),
-        });
-        if (tokenReq.status != 200) {
-            throw new Error(`Failed to get a token: ${tokenReq.status}//${await tokenReq.text()}`);
-        }
-        let { access_token } = await tokenReq.json();
-        this.twitch_token = access_token;
-        // emit token as we don't handle storage the program does
-        // the program might also need the token itself for whatever reason
-        this.emit("access_token", this.twitch_token);
-        // final check
-        this.validateToken();
+        return ret;
     };
+    deleteSubscription = async (subscription_id) => {
+        console.log("Sim delete", subscription_id);
 
-    session_id = "";
-    setSessionID = (session_id) => {
-        this.session_id = session_id;
-    };
-
-    /*
-    subscription = {
-        type: 'foo',
-        version: "1",
-        condition: {
-            whatever
-        }
-    }
-    */
-    createSubscription = async (subscription) => {
-        let transport = {
-            method: "websocket",
-            session_id: this.session_id,
-        };
-
-        let subscriptionReq = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
-            method: "POST",
+        let u = new URL("https://api.twitch.tv/helix/eventsub/subscriptions");
+        u.search = new URLSearchParams([["id", subscription_id]]);
+        let req = await fetch(u, {
+            method: "DELETE",
             headers: {
                 ...this.headers,
-                "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-                ...subscription,
-                transport,
-            }),
         });
-        if (subscriptionReq.status == 202) {
-            return {
-                status: subscriptionReq.status,
-                json: await subscriptionReq.json(),
-            };
+        if (req.status != 204) {
+            throw new Error(`Failed to delete Subscription of ${subscription_id}`);
         }
-        if (subscriptionReq.status == 409) {
-            // its TECHNICALLY not an error....
-            return {
-                status: subscriptionReq.status,
-                json: await subscriptionReq.json(),
-            };
+        // delete ok
+        if (process.env.NODE_ENV != "production") {
+            console.log(`delete Subscription of ${subscription_id}`);
         }
-
-        // major fail
-        throw new Error(
-            `Failed to create Subscription ${subscriptionReq.status} - ${await subscriptionReq.text()}`,
-        );
     };
+    async findAndDeleteSubscriptions(criteria) {
+        let subs = await this.findSubscriptions(criteria);
+        for (var x = 0; x < subs.length; x++) {
+            console.log(subs[x].type, subs[x].id);
+            this.deleteSubscription(subs[x].id);
+        }
+    }
 
     logHelixResponse = (resp) => {
         console.debug(
@@ -764,4 +621,4 @@ class ESWebSocket extends EventEmitter {
     };
 }
 
-export { Conduit, ESWebSocket, eventsubSocket };
+export { Conduit, eventsubSocket };
