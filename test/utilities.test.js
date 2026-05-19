@@ -368,7 +368,6 @@ describe("Twitch Utilities", () => {
         //expect(apiNock).to.have.been.requested;
         expect(validateNock).to.have.been.requested;
     });
-
     it("Announcement is sent", async () => {
         const validateNock = nock("https://id.twitch.tv")
             .get("/oauth2/validate")
@@ -385,6 +384,151 @@ describe("Twitch Utilities", () => {
         let annResponse = await tw.createAnnouncement("123123", "321321", "foobar");
 
         expect(annResponse.status).to.be.equal(200);
+        expect(validateNock).to.have.been.requested;
+        expect(apiNock).to.have.been.requested;
+    });
+
+    it("Create Pin Missing Broadcaster ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createPinnedChatMessage()).to.be.rejectedWith(Error, /^No Broadcaster ID$/);
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Create Pin Missing Moderator ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createPinnedChatMessage("123123", "", "")).to.be.rejectedWith(
+            Error,
+            /^No Moderator ID$/,
+        );
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Create Pin Missing Message ID", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(tw.createPinnedChatMessage("123123", "321321", "")).to.be.rejectedWith(
+            Error,
+            /^No Message ID$/,
+        );
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Create Pin Duration Too Short", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(
+            tw.createPinnedChatMessage("123123", "321321", "abc-abc-abc", 5),
+        ).to.be.rejectedWith(Error, /^Duration Seconds is too short, less than 30$/);
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+    it("Create Pin Duration Too Long", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+
+        await expect(
+            tw.createPinnedChatMessage("123123", "321321", "abc-abc-abc", 1805),
+        ).to.be.rejectedWith(Error, /^Duration Seconds is too long, greater than 1800$/);
+        //expect(chatResponse.status).to.be.equal(200);
+        //expect(apiNock).to.have.been.requested;
+        expect(validateNock).to.have.been.requested;
+    });
+
+    it("Create Pin Without Duration", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        const apiNock = nock("https://api.twitch.tv").put("/helix/chat/pins").reply(204);
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+        let chatResponse = await tw.createPinnedChatMessage("123123", "321321", "abc-abc-abc");
+
+        expect(chatResponse.status).to.be.equal(204);
+        expect(validateNock).to.have.been.requested;
+        expect(apiNock).to.have.been.requested;
+    });
+    it("Create Pin With Duration", async () => {
+        const validateNock = nock("https://id.twitch.tv")
+            .get("/oauth2/validate")
+            .reply(200, {
+                client_id: VALID_CLIENT_ID,
+                login: "twitchdev",
+                scopes: ["channel:read:subscriptions"],
+                expires_in: 5520838,
+            });
+        const apiNock = nock("https://api.twitch.tv").put("/helix/chat/pins").reply(204);
+
+        let tw = new Twitch(VALID_CLIENT_ID);
+        await tw.setToken(VALID_TOKEN);
+        let chatResponse = await tw.createPinnedChatMessage(
+            "123123",
+            "321321",
+            "abc-abc-abc",
+            1000,
+        );
+
+        expect(chatResponse.status).to.be.equal(204);
         expect(validateNock).to.have.been.requested;
         expect(apiNock).to.have.been.requested;
     });
