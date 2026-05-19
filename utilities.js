@@ -92,6 +92,7 @@ class Twitch {
             body: JSON.stringify(payload),
         });
     };
+
     // technially send and pin
     createChatMessageAndPin = async (
         broadcaster_id,
@@ -206,6 +207,20 @@ class Twitch {
             body: JSON.stringify(payload),
         });
     };
+    getPinnedChatMessage = async(broadcaster_id, moderator_id) => {
+        if (!broadcaster_id || broadcaster_id == "") {
+            throw new Error("No Broadcaster ID");
+        }
+        if (!moderator_id || moderator_id == "") {
+            throw new Error("No Moderator ID");
+        }
+        return await fetch("https://api.twitch.tv/helix/chat/pins", {
+            method: "GET",
+            headers: {
+                ...this.headers,
+            },
+        });
+    }
     unpinPinnedChatMessage = async (broadcaster_id, moderator_id, message_id = null) => {
         if (!broadcaster_id || broadcaster_id == "") {
             throw new Error("No Broadcaster ID");
