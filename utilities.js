@@ -207,20 +207,26 @@ class Twitch {
             body: JSON.stringify(payload),
         });
     };
-    getPinnedChatMessage = async(broadcaster_id, moderator_id) => {
+    getPinnedChatMessage = async (broadcaster_id, moderator_id) => {
         if (!broadcaster_id || broadcaster_id == "") {
             throw new Error("No Broadcaster ID");
         }
         if (!moderator_id || moderator_id == "") {
             throw new Error("No Moderator ID");
         }
-        return await fetch("https://api.twitch.tv/helix/chat/pins", {
+        let url = new URL("https://api.twitch.tv/helix/chat/pins");
+        url.searh = new URLSearchParams([
+            ["broadcaster_id", broadcaster_id],
+            ["moderator_id", moderator_id],
+        ]);
+
+        return await fetch(url, {
             method: "GET",
             headers: {
                 ...this.headers,
             },
         });
-    }
+    };
     unpinPinnedChatMessage = async (broadcaster_id, moderator_id, message_id = null) => {
         if (!broadcaster_id || broadcaster_id == "") {
             throw new Error("No Broadcaster ID");
