@@ -215,7 +215,7 @@ class Twitch {
             throw new Error("No Moderator ID");
         }
         let url = new URL("https://api.twitch.tv/helix/chat/pins");
-        url.searh = new URLSearchParams([
+        url.search = new URLSearchParams([
             ["broadcaster_id", broadcaster_id],
             ["moderator_id", moderator_id],
         ]);
