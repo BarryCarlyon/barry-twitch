@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import WebSocket from "ws";
 
 class fetchError extends Error {
-    constructor(message, response, statusCode) {
+    constructor(message, statusCode, response) {
         super(message);
         this.statusCode = statusCode;
         this.response = response;
