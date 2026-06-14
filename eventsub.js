@@ -1,6 +1,14 @@
 import { EventEmitter } from "events";
 import WebSocket from "ws";
 
+class fetchError extends Error {
+    constructor(message, response, statusCode) {
+        super(message);
+        this.statusCode = statusCode;
+        this.response = response;
+    }
+}
+
 class eventsubSocket extends EventEmitter {
     counter = 0;
     closeCodes = {
@@ -359,8 +367,10 @@ class Conduit extends EventEmitter {
             body: JSON.stringify({ shard_count }),
         });
         if (createReq.status != 200) {
-            throw new Error(
-                `Failed to create Conduit ${createReq.status}//${await createReq.text()}`,
+            throw new fetchError(
+                "Failed to create Conduit",
+                createReq.status,
+                await createReq.text(),
             );
         }
 
@@ -383,8 +393,10 @@ class Conduit extends EventEmitter {
             }),
         });
         if (updateReq.status != 200) {
-            throw new Error(
-                `Failed to update Conduit ${updateReq.status}//${await updateReq.text()}`,
+            throw new fetchError(
+                "Failed to update Conduit",
+                updateReq.status,
+                await updateReq.text(),
             );
         }
 
@@ -405,8 +417,10 @@ class Conduit extends EventEmitter {
         });
 
         if (deleteReq.status != 204) {
-            throw new Error(
-                `Failed to delete Conduit ${deleteReq.status}//${await deleteReq.text()}`,
+            throw new fetchError(
+                "Failed to delete Conduit",
+                deleteReq.status,
+                await deleteReq.text(),
             );
         }
 
@@ -421,9 +435,11 @@ class Conduit extends EventEmitter {
             },
         });
         if (conduitsReq.status != 200) {
-            //                 ${conduitsReq.status}//${await conduitsReq.text()}`,
-            throw new Error(`Failed to Get Conduits`);
-            //, { cause: "Fatal" });
+            throw new fetchError(
+                "Failed to Get Conduit",
+                conduitsReq.status,
+                await conduitsReq.text(),
+            );
         }
         let { data } = await conduitsReq.json();
         for (var x = 0; x < data.length; x++) {
@@ -477,7 +493,11 @@ class Conduit extends EventEmitter {
         if (shardUpdate.status != 202) {
             // major fail
             // ${shardUpdate.status} - ${await shardUpdate.text()}`,
-            throw new Error(`Failed to shardUpdate`);
+            throw new fetchError(
+                "Failed to shardUpdate",
+                shardUpdate.status,
+                await shardUpdate.text(),
+            );
         }
         let { data, errors } = await shardUpdate.json();
 
@@ -532,8 +552,10 @@ class Conduit extends EventEmitter {
         }
 
         // major fail
-        throw new Error(
-            `Failed to create Subscription ${subscriptionReq.status} - ${await subscriptionReq.text()}`,
+        throw new fetchError(
+            "Failed to create Subscription",
+            subscriptionReq.status,
+            await subscriptionReq.text(),
         );
     };
 
@@ -561,7 +583,7 @@ class Conduit extends EventEmitter {
             },
         });
         if (req.status != 200) {
-            throw new Error("Failed to lookup Subscriptions");
+            throw new fetchError("Failed to lookup Subscriptions", req.status, await req.text());
         }
         // total total_cost max_total_cost
         let { data, pagination } = await req.json();
@@ -599,7 +621,11 @@ class Conduit extends EventEmitter {
             },
         });
         if (req.status != 204) {
-            throw new Error(`Failed to delete Subscription of ${subscription_id}`);
+            throw new fetchError(
+                `Failed to delete Subscription of ${subscription_id}`,
+                req.status,
+                await req.text(),
+            );
         }
         // delete ok
         if (process.env.NODE_ENV != "production") {
