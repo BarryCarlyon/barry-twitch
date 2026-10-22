@@ -67,8 +67,7 @@ class tokenManager extends EventEmitter {
         if (this.twitch_token == "") {
             console.debug("No Token will generate");
             // can generate?
-            this.refreshToken();
-            return;
+            return this.refreshToken();
         }
 
         let validateReq = null;
@@ -83,8 +82,7 @@ class tokenManager extends EventEmitter {
                 console.debug("Token failed", validateReq.status);
                 // the token is invalid
                 // try to generate
-                this.refreshToken();
-                return;
+                return this.refreshToken();
             }
         } catch (e) {
             // probably API was down
@@ -130,13 +128,11 @@ class tokenManager extends EventEmitter {
                 // need refresh
                 if (!this.infinityCheck && validateRes.expires_in == 0) {
                     this.infinityCheck = true;
-                    this.validateToken();
-                    return;
+                    return this.validateToken();
                 }
                 this.infinityCheck = false;
 
-                this.refreshToken();
-                return;
+                return this.refreshToken();
             }
         }
 
@@ -149,6 +145,8 @@ class tokenManager extends EventEmitter {
 
         // (re)initiate maintaince timer
         this.maintainceTimer();
+
+        return validateRes;
     };
     maintainceTimer() {
         if (this.auto_maintain) {
